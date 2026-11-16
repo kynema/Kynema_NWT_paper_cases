@@ -10,8 +10,8 @@ using Printf
 using Images
 using LinearAlgebra
 
-# choose case (1, 2, 3)
-icase = 3
+# Legacy archived-data analysis: choose linear (1) or fifth-order (5).
+icase = 5
 
 # physical parameters for simulation
 wave_length  = 4. # meters
@@ -51,12 +51,6 @@ for n in valid_ns # Last 4 seconds of the simulations to avoid transient times (
         global wave_min = wave_height / 2.
         global wave_max = -wave_height / 2.
         full_prefix *= "/LinearWaves"
-    elseif (icase == 2)
-        global wave_height = 0.16
-        # expected peak and trough calculated through dispersion relation
-        global wave_min = -0.0749735
-        global wave_max = 0.0850265
-        full_prefix *= "/SecondOrder"
     else
         global icase = 5
         global wave_height = 0.3585

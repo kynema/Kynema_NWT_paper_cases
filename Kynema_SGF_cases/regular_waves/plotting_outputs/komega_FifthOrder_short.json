@@ -1,0 +1,21 @@
+{
+  "source": "/Users/mkuhn/repos_for_cases/Kynema_NWT_paper_cases/Kynema_SGF_cases/regular_waves/data/reflection/FifthOrder/post_processing",
+  "time_first_s": 14.0,
+  "time_last_s": 17.990000000000002,
+  "x_first_m": 4.000000000006,
+  "x_last_m": 11.989999999998,
+  "nt": 400,
+  "nx": 800,
+  "delta_f_hz": 0.25000000000000533,
+  "delta_k_rad_per_m": 0.7853981633982323,
+  "frequency_band_hz": [
+    0.4,
+    0.85
+  ],
+  "incident_direction": "+x",
+  "incident_variance_m2": 0.0136798045631603,
+  "reflected_variance_m2": 2.785039470734248e-06,
+  "incident_equivalent_amplitude_m": 0.16540740348098268,
+  "reflected_equivalent_amplitude_m": 0.002360101468468781,
+  "reflection_coefficient": 0.01426841494879114
+}

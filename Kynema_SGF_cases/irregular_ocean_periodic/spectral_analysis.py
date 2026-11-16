@@ -298,6 +298,14 @@ def _(make_spectrum_plot):
     make_spectrum_plot(1000)
 
 @app.cell
+def _():
+    from instantaneous_spectra import make_comparison
+
+    _fig = make_comparison()
+    _fig
+    return
+
+@app.cell
 def _(np, path):
     ## Load the HOS data
     HOSEnergy = np.genfromtxt(path+"/HOS/vol_energy.dat",skip_header=67)

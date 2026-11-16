@@ -1,0 +1,56 @@
+{
+  "id": "stokes5/mesh_cph10",
+  "family": "stokes5",
+  "sweeps": [
+    "mesh"
+  ],
+  "wave_type": "StokesWaves",
+  "wave_height_m": 0.3585,
+  "wave_length_m": 4.0,
+  "water_depth_m": 4.0,
+  "ka": 0.2815652415779852,
+  "domain_lo_m": [
+    0.0,
+    -0.15,
+    -4.0
+  ],
+  "domain_hi_m": [
+    48.0,
+    0.15,
+    2.0
+  ],
+  "n_cell": [
+    320,
+    2,
+    40
+  ],
+  "max_level": 2,
+  "dx_m": 0.0375,
+  "dy_m": 0.0375,
+  "dz_m": 0.0375,
+  "aspect_ratio": 1,
+  "mesh_target_cells_per_height": 10,
+  "cells_per_height": 9.56,
+  "nominal_advective_cfl": 0.5,
+  "cfl_rate_estimate_per_s": 64.87714363169334,
+  "cfl_estimate_model": "2*max_phase(|u_surface|/dx + |w_surface|/dz)",
+  "u_peak_estimate_m_per_s": 0.9592375925049483,
+  "w_peak_estimate_m_per_s": 0.6737827980868454,
+  "dt_s": 0.007706874440072349,
+  "stop_time_s": 192.0,
+  "output_interval_steps": 5,
+  "sample_dt_s": 0.038534372200361745,
+  "sample_x_m": [
+    8.0,
+    36.0
+  ],
+  "sample_points": 561,
+  "analysis_time_s": [
+    112.0,
+    176.0
+  ],
+  "frequency_band_hz": [
+    0.4,
+    0.85
+  ]
+}

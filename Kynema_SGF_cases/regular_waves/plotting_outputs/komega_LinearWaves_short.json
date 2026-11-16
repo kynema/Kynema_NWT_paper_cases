@@ -1,0 +1,21 @@
+{
+  "source": "/Users/mkuhn/repos_for_cases/Kynema_NWT_paper_cases/Kynema_SGF_cases/regular_waves/data/reflection/LinearWaves/post_processing",
+  "time_first_s": 14.0,
+  "time_last_s": 17.990000000000002,
+  "x_first_m": 4.000000000006,
+  "x_last_m": 11.989999999998,
+  "nt": 400,
+  "nx": 800,
+  "delta_f_hz": 0.25000000000000533,
+  "delta_k_rad_per_m": 0.7853981633982323,
+  "frequency_band_hz": [
+    0.4,
+    0.85
+  ],
+  "incident_direction": "+x",
+  "incident_variance_m2": 7.82895788806727e-05,
+  "reflected_variance_m2": 5.22191057963182e-08,
+  "incident_equivalent_amplitude_m": 0.012513159383678663,
+  "reflected_equivalent_amplitude_m": 0.00032316901397354974,
+  "reflection_coefficient": 0.025826332428488846
+}
