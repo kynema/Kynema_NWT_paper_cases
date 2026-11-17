@@ -1,0 +1,492 @@
+{
+  "analysis_window_s": [
+    30.0,
+    1776.99
+  ],
+  "peak_period_s": 1.6971,
+  "comparison_sample_dt_s": 0.01,
+  "event_half_window_s": 5.0913,
+  "event_rank_by": "crest",
+  "event_selection": "largest HOS mean-referenced crests, nonoverlapping full-context windows",
+  "crest_definition": "native-sample maximum above each record's time-weighted mean in each complete upcrossing wave",
+  "clock_alignment": "original physical clock, no fitted phase/time shifts",
+  "timestamp_ties": "native elevations preserved for crests; tied times averaged only for interpolation/moments",
+  "gauge_mapping": "HOS p2 follows the existing Julia analysis; expected x=16 m maps to SGF x=0 via offset -16 m. The archived probe_2.inp is not present; verify that position list independently.",
+  "sources": {
+    "hos": {
+      "source": "/Users/mkuhn/repos_for_cases/Kynema_NWT_paper_cases/Kynema_SGF_cases/irregular_tank/data/HOS_NWT_probes.dat",
+      "probe": 2,
+      "output_frequency_hz": 141.421,
+      "peak_period_s": 1.6971,
+      "printed_time_decimal_digits": 5,
+      "printed_time_ties": 32215,
+      "clock_policy": "t[0] + sample_index/f_out, checked against printed rounding intervals"
+    },
+    "sgf_coarse": {
+      "source": "/Users/mkuhn/repos_for_cases/Kynema_NWT_paper_cases/Kynema_SGF_cases/irregular_tank/data/amr_wind_hos_nwt_sampling_time_series.txt",
+      "gauge_xy_m": [
+        0.0,
+        0.0
+      ],
+      "printed_time_ties": 209,
+      "clock_policy": "native printed times; tied elevations retained for crest extraction"
+    },
+    "sgf_fine": {
+      "source": "/Users/mkuhn/repos_for_cases/Kynema_NWT_paper_cases/Kynema_SGF_cases/irregular_tank/data/amr_wind_hos_nwt_sampling_time_series_finer.txt",
+      "gauge_xy_m": [
+        0.0,
+        0.0
+      ],
+      "printed_time_ties": 8064,
+      "clock_policy": "native printed times; tied elevations retained for crest extraction"
+    }
+  },
+  "statistics": {
+    "hos": {
+      "label": "HOS-NWT precursor (p2)",
+      "complete_wave_count": 1187,
+      "mean_water_level_m": -2.9515497246777585e-05,
+      "surface_std_m": 0.03588523674987915,
+      "hm0_m": 0.1435409469995166,
+      "mean_crest_height_m": 0.04837039678368317,
+      "crest_p50_m": 0.04597691549724678,
+      "crest_p90_m": 0.08308665549724678,
+      "crest_p95_m": 0.0963108554972468,
+      "crest_p99_m": 0.12393529549724688,
+      "crest_p99p9_m": 0.18154451349724693,
+      "maximum_crest_height_m": 0.1986395154972468,
+      "maximum_wave_height_m": 0.2982142,
+      "native_maximum_elevation_m": 0.19861,
+      "native_maximum_time_s": 362.46384907474845,
+      "tied_samples_in_window": 0,
+      "minimum_wave_period_s": 0.37205903767085147,
+      "waves_shorter_than_half_peak_period": 75
+    },
+    "sgf_coarse": {
+      "label": "Kynema-SGF, dz=0.0188 m",
+      "complete_wave_count": 1176,
+      "mean_water_level_m": -0.00010907108336618837,
+      "surface_std_m": 0.03519043859353335,
+      "hm0_m": 0.1407617543741334,
+      "mean_crest_height_m": 0.046494468394474936,
+      "crest_p50_m": 0.04385348530726216,
+      "crest_p90_m": 0.08003064526091533,
+      "crest_p95_m": 0.09089178824123204,
+      "crest_p99_m": 0.11785693162193304,
+      "crest_p99p9_m": 0.1584586658995377,
+      "maximum_crest_height_m": 0.16413507527777585,
+      "maximum_wave_height_m": 0.27163308275601755,
+      "native_maximum_elevation_m": 0.16402600419440966,
+      "native_maximum_time_s": 1356.59,
+      "tied_samples_in_window": 209,
+      "minimum_wave_period_s": 0.031751553566266466,
+      "waves_shorter_than_half_peak_period": 64,
+      "temporal_agreement": {
+        "bias_m": -7.954855674512154e-05,
+        "rmse_m": 0.003884393101672598,
+        "mae_m": 0.002887600334173032,
+        "correlation": 0.9942185401994132
+      }
+    },
+    "sgf_fine": {
+      "label": "Kynema-SGF, dz=0.0094 m",
+      "complete_wave_count": 1176,
+      "mean_water_level_m": -3.061549676314511e-05,
+      "surface_std_m": 0.03564774452027967,
+      "hm0_m": 0.14259097808111867,
+      "mean_crest_height_m": 0.04800545941922485,
+      "crest_p50_m": 0.0457585928315105,
+      "crest_p90_m": 0.08182016195699243,
+      "crest_p95_m": 0.09462431334471323,
+      "crest_p99_m": 0.1222358231832606,
+      "crest_p99p9_m": 0.17348625898040287,
+      "maximum_crest_height_m": 0.18756620382791175,
+      "maximum_wave_height_m": 0.2870889995589928,
+      "native_maximum_elevation_m": 0.1875355883311486,
+      "native_maximum_time_s": 362.459,
+      "tied_samples_in_window": 8064,
+      "minimum_wave_period_s": 0.3337483804184558,
+      "waves_shorter_than_half_peak_period": 68,
+      "temporal_agreement": {
+        "bias_m": -1.090689836579284e-06,
+        "rmse_m": 0.0006319813226881956,
+        "mae_m": 0.0004591660159625348,
+        "correlation": 0.999865461740507
+      }
+    }
+  },
+  "events": [
+    {
+      "rank": 1,
+      "hos_wave": {
+        "wave_index": 228,
+        "start_s": 362.0922964276678,
+        "end_s": 363.4729551330401,
+        "period_s": 1.3806587053722978,
+        "crest_time_s": 362.46384907474845,
+        "crest_height_m": 0.1986395154972468,
+        "crest_elevation_m": 0.19861,
+        "trough_time_s": 363.05782026714564,
+        "trough_height_m": -0.09957468450275322,
+        "wave_height_m": 0.2982142
+      },
+      "series": {
+        "hos": {
+          "crest_time_s": 362.46384907474845,
+          "crest_elevation_m": 0.19861,
+          "crest_height_m": 0.1986395154972468,
+          "crest_height_error_m": 0.0,
+          "crest_height_relative_error": 0.0,
+          "crest_time_lag_s": 0.0,
+          "peak_at_matching_interval_edge": false,
+          "context_agreement": {
+            "bias_m": 0.0,
+            "rmse_m": 0.0,
+            "mae_m": 0.0,
+            "correlation": 1.0
+          }
+        },
+        "sgf_coarse": {
+          "crest_time_s": 362.475,
+          "crest_elevation_m": 0.1609665897902097,
+          "crest_height_m": 0.1610756608735759,
+          "crest_height_error_m": -0.0375638546236709,
+          "crest_height_relative_error": -0.1891056496469936,
+          "crest_time_lag_s": 0.011150925251570243,
+          "peak_at_matching_interval_edge": false,
+          "context_agreement": {
+            "bias_m": -6.569288877728684e-05,
+            "rmse_m": 0.007001471887190077,
+            "mae_m": 0.004044615388071834,
+            "correlation": 0.990124529493657
+          }
+        },
+        "sgf_fine": {
+          "crest_time_s": 362.459,
+          "crest_elevation_m": 0.1875355883311486,
+          "crest_height_m": 0.18756620382791175,
+          "crest_height_error_m": -0.011073311669335034,
+          "crest_height_relative_error": -0.055745764590774516,
+          "crest_time_lag_s": -0.004849074748449311,
+          "peak_at_matching_interval_edge": false,
+          "context_agreement": {
+            "bias_m": 4.869380610869467e-07,
+            "rmse_m": 0.001084886419208671,
+            "mae_m": 0.0005793381250651256,
+            "correlation": 0.9997843952587242
+          }
+        }
+      }
+    },
+    {
+      "rank": 2,
+      "hos_wave": {
+        "wave_index": 944,
+        "start_s": 1425.1986015999407,
+        "end_s": 1426.96238765234,
+        "period_s": 1.7637860523993822,
+        "crest_time_s": 1425.4318665544722,
+        "crest_height_m": 0.1819085154972468,
+        "crest_elevation_m": 0.181879,
+        "trough_time_s": 1426.4218185418008,
+        "trough_height_m": -0.04570338450275322,
+        "wave_height_m": 0.2276119
+      },
+      "series": {
+        "hos": {
+          "crest_time_s": 1425.4318665544722,
+          "crest_elevation_m": 0.181879,
+          "crest_height_m": 0.1819085154972468,
+          "crest_height_error_m": 0.0,
+          "crest_height_relative_error": 0.0,
+          "crest_time_lag_s": 0.0,
+          "peak_at_matching_interval_edge": false,
+          "context_agreement": {
+            "bias_m": 0.0,
+            "rmse_m": 0.0,
+            "mae_m": 0.0,
+            "correlation": 1.0
+          }
+        },
+        "sgf_coarse": {
+          "crest_time_s": 1425.55,
+          "crest_elevation_m": 0.1460123327957018,
+          "crest_height_m": 0.146121403879068,
+          "crest_height_error_m": -0.035787111618178796,
+          "crest_height_relative_error": -0.19673137082315661,
+          "crest_time_lag_s": 0.11813344552774652,
+          "peak_at_matching_interval_edge": false,
+          "context_agreement": {
+            "bias_m": -0.0002183089641896655,
+            "rmse_m": 0.013281281464620128,
+            "mae_m": 0.007891896435912005,
+            "correlation": 0.9629919390805615
+          }
+        },
+        "sgf_fine": {
+          "crest_time_s": 1425.44,
+          "crest_elevation_m": 0.1709915981975104,
+          "crest_height_m": 0.17102221369427353,
+          "crest_height_error_m": -0.010886301802973258,
+          "crest_height_relative_error": -0.059844926848067304,
+          "crest_time_lag_s": 0.008133445527846561,
+          "peak_at_matching_interval_edge": false,
+          "context_agreement": {
+            "bias_m": -2.541848276993819e-06,
+            "rmse_m": 0.0014464028336403122,
+            "mae_m": 0.0008493672935444367,
+            "correlation": 0.9995860861129646
+          }
+        }
+      }
+    },
+    {
+      "rank": 3,
+      "hos_wave": {
+        "wave_index": 894,
+        "start_s": 1356.289586637533,
+        "end_s": 1357.684504584121,
+        "period_s": 1.3949179465880661,
+        "crest_time_s": 1356.5877769213907,
+        "crest_height_m": 0.17995151549724678,
+        "crest_elevation_m": 0.179922,
+        "trough_time_s": 1357.2383167987782,
+        "trough_height_m": -0.08675478450275322,
+        "wave_height_m": 0.2667063
+      },
+      "series": {
+        "hos": {
+          "crest_time_s": 1356.5877769213907,
+          "crest_elevation_m": 0.179922,
+          "crest_height_m": 0.17995151549724678,
+          "crest_height_error_m": 0.0,
+          "crest_height_relative_error": 0.0,
+          "crest_time_lag_s": 0.0,
+          "peak_at_matching_interval_edge": false,
+          "context_agreement": {
+            "bias_m": 0.0,
+            "rmse_m": 0.0,
+            "mae_m": 0.0,
+            "correlation": 1.0
+          }
+        },
+        "sgf_coarse": {
+          "crest_time_s": 1356.59,
+          "crest_elevation_m": 0.16402600419440966,
+          "crest_height_m": 0.16413507527777585,
+          "crest_height_error_m": -0.01581644021947093,
+          "crest_height_relative_error": -0.08789278698635306,
+          "crest_time_lag_s": 0.0022230786091768096,
+          "peak_at_matching_interval_edge": false,
+          "context_agreement": {
+            "bias_m": 2.528821546413139e-05,
+            "rmse_m": 0.003088556188425005,
+            "mae_m": 0.0022663736248303627,
+            "correlation": 0.997937937264128
+          }
+        },
+        "sgf_fine": {
+          "crest_time_s": 1356.59,
+          "crest_elevation_m": 0.1739783197564549,
+          "crest_height_m": 0.17400893525321803,
+          "crest_height_error_m": -0.0059425802440287445,
+          "crest_height_relative_error": -0.03302322977168626,
+          "crest_time_lag_s": 0.0022230786091768096,
+          "peak_at_matching_interval_edge": false,
+          "context_agreement": {
+            "bias_m": 1.3100716757471294e-05,
+            "rmse_m": 0.0007998218736946531,
+            "mae_m": 0.0004973720109298617,
+            "correlation": 0.9998658331548994
+          }
+        }
+      }
+    },
+    {
+      "rank": 4,
+      "hos_wave": {
+        "wave_index": 73,
+        "start_s": 140.7364339239338,
+        "end_s": 142.22733796204287,
+        "period_s": 1.490904038109079,
+        "crest_time_s": 141.20250882117932,
+        "crest_height_m": 0.1724435154972468,
+        "crest_elevation_m": 0.172414,
+        "trough_time_s": 141.72576915733873,
+        "trough_height_m": -0.11370348450275322,
+        "wave_height_m": 0.28614700000000004
+      },
+      "series": {
+        "hos": {
+          "crest_time_s": 141.20250882117932,
+          "crest_elevation_m": 0.172414,
+          "crest_height_m": 0.1724435154972468,
+          "crest_height_error_m": 0.0,
+          "crest_height_relative_error": 0.0,
+          "crest_time_lag_s": 0.0,
+          "peak_at_matching_interval_edge": false,
+          "context_agreement": {
+            "bias_m": 0.0,
+            "rmse_m": 0.0,
+            "mae_m": 0.0,
+            "correlation": 1.0
+          }
+        },
+        "sgf_coarse": {
+          "crest_time_s": 141.175,
+          "crest_elevation_m": 0.13597087281169737,
+          "crest_height_m": 0.13607994389506356,
+          "crest_height_error_m": -0.03636357160218323,
+          "crest_height_relative_error": -0.21087236303045453,
+          "crest_time_lag_s": -0.027508821179310416,
+          "peak_at_matching_interval_edge": false,
+          "context_agreement": {
+            "bias_m": -0.00014553265634089526,
+            "rmse_m": 0.008627860580636772,
+            "mae_m": 0.004536489975911756,
+            "correlation": 0.9874428716600712
+          }
+        },
+        "sgf_fine": {
+          "crest_time_s": 141.191,
+          "crest_elevation_m": 0.1606602027861696,
+          "crest_height_m": 0.16069081828293275,
+          "crest_height_error_m": -0.011752697214314045,
+          "crest_height_relative_error": -0.06815389480100043,
+          "crest_time_lag_s": -0.011508821179319284,
+          "peak_at_matching_interval_edge": false,
+          "context_agreement": {
+            "bias_m": 1.16625520852101e-07,
+            "rmse_m": 0.0011980250887253393,
+            "mae_m": 0.0005279220077047135,
+            "correlation": 0.999769279953062
+          }
+        }
+      }
+    },
+    {
+      "rank": 5,
+      "hos_wave": {
+        "wave_index": 47,
+        "start_s": 100.32009981855002,
+        "end_s": 101.87891564812219,
+        "period_s": 1.5588158295721684,
+        "crest_time_s": 100.52255322759704,
+        "crest_height_m": 0.14960651549724677,
+        "crest_elevation_m": 0.149577,
+        "trough_time_s": 101.52664738617321,
+        "trough_height_m": -0.08759288450275322,
+        "wave_height_m": 0.2371994
+      },
+      "series": {
+        "hos": {
+          "crest_time_s": 100.52255322759704,
+          "crest_elevation_m": 0.149577,
+          "crest_height_m": 0.14960651549724677,
+          "crest_height_error_m": 0.0,
+          "crest_height_relative_error": 0.0,
+          "crest_time_lag_s": 0.0,
+          "peak_at_matching_interval_edge": false,
+          "context_agreement": {
+            "bias_m": 0.0,
+            "rmse_m": 0.0,
+            "mae_m": 0.0,
+            "correlation": 1.0
+          }
+        },
+        "sgf_coarse": {
+          "crest_time_s": 100.561,
+          "crest_elevation_m": 0.12925986221074043,
+          "crest_height_m": 0.12936893329410662,
+          "crest_height_error_m": -0.020237582203140148,
+          "crest_height_relative_error": -0.13527206442765238,
+          "crest_time_lag_s": 0.03844677240296335,
+          "peak_at_matching_interval_edge": false,
+          "context_agreement": {
+            "bias_m": -0.00012276028568421603,
+            "rmse_m": 0.00588421456917632,
+            "mae_m": 0.0034707670699437062,
+            "correlation": 0.990529662934816
+          }
+        },
+        "sgf_fine": {
+          "crest_time_s": 100.521,
+          "crest_elevation_m": 0.1400631989292743,
+          "crest_height_m": 0.14009381442603744,
+          "crest_height_error_m": -0.009512701071209329,
+          "crest_height_relative_error": -0.06358480470982153,
+          "crest_time_lag_s": -0.0015532275970429055,
+          "peak_at_matching_interval_edge": false,
+          "context_agreement": {
+            "bias_m": -9.533576990719819e-06,
+            "rmse_m": 0.0012343216635808223,
+            "mae_m": 0.0006736754884438977,
+            "correlation": 0.9996044854109997
+          }
+        }
+      }
+    },
+    {
+      "rank": 6,
+      "hos_wave": {
+        "wave_index": 517,
+        "start_s": 797.92049717147,
+        "end_s": 799.5564988889284,
+        "period_s": 1.6360017174584982,
+        "crest_time_s": 798.2477849824284,
+        "crest_height_m": 0.14007051549724678,
+        "crest_elevation_m": 0.140041,
+        "trough_time_s": 798.8700405173207,
+        "trough_height_m": -0.04304078450275322,
+        "wave_height_m": 0.1831113
+      },
+      "series": {
+        "hos": {
+          "crest_time_s": 798.2477849824284,
+          "crest_elevation_m": 0.140041,
+          "crest_height_m": 0.14007051549724678,
+          "crest_height_error_m": 0.0,
+          "crest_height_relative_error": 0.0,
+          "crest_time_lag_s": 0.0,
+          "peak_at_matching_interval_edge": false,
+          "context_agreement": {
+            "bias_m": 0.0,
+            "rmse_m": 0.0,
+            "mae_m": 0.0,
+            "correlation": 1.0
+          }
+        },
+        "sgf_coarse": {
+          "crest_time_s": 798.233,
+          "crest_elevation_m": 0.12444104014665834,
+          "crest_height_m": 0.12455011123002453,
+          "crest_height_error_m": -0.015520404267222246,
+          "crest_height_relative_error": -0.11080422037518178,
+          "crest_time_lag_s": -0.014784982428409421,
+          "peak_at_matching_interval_edge": false,
+          "context_agreement": {
+            "bias_m": -0.0002710567284187048,
+            "rmse_m": 0.0036319204926275315,
+            "mae_m": 0.0026999705373510585,
+            "correlation": 0.9977353091915396
+          }
+        },
+        "sgf_fine": {
+          "crest_time_s": 798.246,
+          "crest_elevation_m": 0.13563481798618876,
+          "crest_height_m": 0.1356654334829519,
+          "crest_height_error_m": -0.0044050820142948754,
+          "crest_height_relative_error": -0.03144903121586262,
+          "crest_time_lag_s": -0.0017849824283757698,
+          "peak_at_matching_interval_edge": false,
+          "context_agreement": {
+            "bias_m": -7.407142015351504e-06,
+            "rmse_m": 0.000640131083853853,
+            "mae_m": 0.00042261313910910896,
+            "correlation": 0.999931626494035
+          }
+        }
+      }
+    }
+  ]
+}
