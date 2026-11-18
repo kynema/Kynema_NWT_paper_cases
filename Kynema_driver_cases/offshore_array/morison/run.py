@@ -101,18 +101,21 @@ def run_hos(args):
         raise ValueError("start/stop must be finite and dt positive")
     if args.stop <= args.start:
         raise ValueError("stop must be after start")
+    current_x = float(finite("current_x", args.current_x, ()))
     geometry = load_geometry(args.geometry)
     time = clock(args.start + np.arange(int(np.floor((args.stop - args.start) / args.dt)) + 1) * args.dt)
     provider = Grid2Grid(args.library, args.modes, args.zmax, args.nz)
     loads = []
     for t in time:
         eta, velocity, acceleration = sample(provider, geometry, t, args.hos_xy_shift,
-                                             args.hos_time_shift, args.derivative_step)
+                                             args.hos_time_shift, args.derivative_step,
+                                             current_x=current_x)
         loads.append(integrate(geometry, eta, velocity, acceleration, cd=args.cd, cm=args.cm))
     save_loads(args.output, geometry, time, loads, "HOS via Grid2Grid", args.cd, args.cm,
                modes_file=str(Path(args.modes).resolve()), library=str(Path(args.library).resolve()),
                hos_xy_shift=args.hos_xy_shift, hos_time_shift=args.hos_time_shift,
                derivative_step=args.derivative_step, zmax=args.zmax, nz=args.nz,
+               uniform_current=[current_x, 0, 0], velocity_convention="total",
                registration_confirmed=True)
 
 
@@ -178,6 +181,8 @@ def main():
     p.add_argument("--hos-xy-shift", type=float, nargs=2, required=True,
                    help="HOS xy = CFD world xy + these explicitly verified shifts [m]")
     p.add_argument("--hos-time-shift", type=float, default=0)
+    p.add_argument("--current-x", type=float, required=True,
+                   help="Uniform x-current [m/s] added once to wave-only HOS velocities; demo: 1.5")
     p.add_argument("--registration-confirmed", action="store_true")
     p.add_argument("--start", type=float, default=240)
     p.add_argument("--stop", type=float, required=True)

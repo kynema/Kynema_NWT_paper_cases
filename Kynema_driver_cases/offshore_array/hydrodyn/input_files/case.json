@@ -36,6 +36,11 @@
   "flooding": "members 1-15; FillFSLoc=0; FillDens=1025",
   "marine_growth": false,
   "wave_stretching": "vertical; unchanged below SWL, constant above SWL",
+  "uniform_current": [
+    1.5,
+    0,
+    0
+  ],
   "hydrodyn_moment_origin": [
     0,
     0,
@@ -108,14 +113,14 @@
   "input_sha256": {
     "HydroDyn.dat": "9d080705a3ab1a82960e66aa42540e4afb5b99af55f2ac92e80b584222209bb6",
     "jacket1.dvr": "91c57d60d41084cd1b19f7b4aab61fc848e15963f54f10488e9e96cc8a27c69e",
-    "jacket1_SeaState.dat": "7534e2c8f4808aeb6c8d5b0967311da9c14fe3f516d1e952e00d2b84d58f70ea",
+    "jacket1_SeaState.dat": "70ba39cb550cb96af8fa2ef8e6af2772978f4ba444fa7855a5544d13815c062d",
     "jacket2.dvr": "3661af20df3d1629dccfb049ec26bf6b393a15cea600a55298d1a0408bed0414",
-    "jacket2_SeaState.dat": "080bff3b23378f6fe119e2271fc5481d62d6a3001fddb456075b47a12db56ba8",
+    "jacket2_SeaState.dat": "058cd1e28be54c80d6da65a6d0b57a1d3874661f5621853a45ea10c2f918859b",
     "jacket3.dvr": "38755dfe70fcaf0762b7a000f0c85f2185803ffd74a43f94f282137cce442574",
-    "jacket3_SeaState.dat": "ebc15ca282ddebbcfcd7a48a3fb8c58277e7d78c404a36c05f94c6527c26b8c9",
+    "jacket3_SeaState.dat": "28a25e9990403ba57dc6974c239509d258067b9b6cda578db3a91750a5c98aa4",
     "jacket4.dvr": "bd7ab77d66b47bba1607332b95d7a087b5cb2c137b567aecdad43c0db102de7c",
-    "jacket4_SeaState.dat": "f44a38c8e5b2bb71c2f8e40357bfd747f0fcfd822410d298d34517ac52f8ad8b",
-    "smoke_SeaState.dat": "08ce1fa7f7ace932ea5e130dc7e73430e9004becc94c12c6bbe201a27023543a",
+    "jacket4_SeaState.dat": "5028e290713378d15d88fe54ede38bba88efab5bf8a01753f7351814cdc6426f",
+    "smoke_SeaState.dat": "63968cc364355eeeb9ce986a1181199e7b022ad05b50f0a98bfe0460f2361016",
     "smoke_regular.dvr": "31935b3a8d04272efc926e7995a988d45d26f0ea2771138735681caea3ad43e7"
   }
 }

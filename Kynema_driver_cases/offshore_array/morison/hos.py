@@ -83,8 +83,10 @@ class Grid2Grid:
         return finite("HOS velocity", result)
 
 
-def sample(provider, geometry, time, xy_shift, time_shift=0, derivative_step=0.02):
+def sample(provider, geometry, time, xy_shift, time_shift=0, derivative_step=0.02,
+           current_x=0):
     """Eulerian derivative at fixed wet-midpoint coordinates, not moving-node du/dt."""
+    current_x = float(finite("current_x", current_x, ()))
     if not np.isfinite(derivative_step) or derivative_step <= 0:
         raise ValueError("derivative_step must be positive")
     time = float(finite("time", time)) + float(finite("time_shift", time_shift))
@@ -103,4 +105,5 @@ def sample(provider, geometry, time, xy_shift, time_shift=0, derivative_step=0.0
     before = provider.velocity(points, time - derivative_step)
     after = provider.velocity(points, time + derivative_step)
     acceleration[wet] = (after - before) / (2 * derivative_step)
+    u[wet, 0] += current_x
     return eta, u, acceleration

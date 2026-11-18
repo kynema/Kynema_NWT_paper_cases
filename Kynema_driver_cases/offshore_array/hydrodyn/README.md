@@ -50,8 +50,32 @@ than drawing a new random sea or reconstructing it from one elevation gauge.
 SeaState's grid extends from the seabed to SWL. `WaveStMod=1` uses vertical
 stretching: below-SWL kinematics are unchanged, and above-SWL wet nodes use
 SWL values. This is **not exact nonlinear HOS kinematics above SWL**; quantify
-that approximation for the intended sea state. Current must already be present
-in the supplied fields; SeaState current and second-order synthesis are off.
+that approximation for the intended sea state.
+
+### Uniform-current baseline
+
+The demo's [HOS input](../../../HOS_Ocean_cases/input_demo.dat) uses `i_curr=1`,
+`u_0=1.5 m/s`, and both fresh/restart SGF decks prescribe the same **+1.5 m/s
+x-current**. The generated `case.json` records `uniform_current=[1.5,0,0]`.
+External velocities must contain this background current **exactly once**:
+raw HOS SWENSE/Grid2Grid velocities are wave-only, whereas updated SGF
+`ow_velocity` is already wave-plus-current.
+
+Keep SeaState **`CurrMod=0`** for the `WaveMod=6` cases; enabling another current
+would double-count it. Second-order synthesis remains off.
+The exporter requires total-velocity/current metadata
+matching the case and does not add velocity itself. Constant current adds no
+Eulerian acceleration; retain the current-modified wave time dependence without
+an extra Doppler/coordinate shift. The regular-wave smoke test remains a
+separate **zero-current** installation check.
+
+Dynamic pressure must also be consistent with waves on that current. For a
+wave potential `phi` with laboratory-frame time derivative, the usual
+mean-current-referenced expression is
+`p_dyn = -rho * (phi_t + U*phi_x + 0.5*|grad(phi)|^2)`.
+Do not merely add U to velocities and reuse pressure reconstructed under a
+zero-current assumption. Verify the exporter's pressure convention; the
+handoff cannot infer or repair it from velocity arrays alone.
 
 ## Run now: executable smoke test
 
@@ -89,7 +113,7 @@ Generate a working copy rather than editing templates or generating outputs
 in the repository:
 
 ```bash
-python3 hydrodyn/prepare.py --output hydrodyn_outputs/case
+python3 hydrodyn/prepare.py --output hydrodyn_outputs/case --current-x 1.5
 ```
 
 Defaults select **physical times 240-3675 s**, with HydroDyn local time
@@ -98,6 +122,9 @@ Change `--physical-time-origin`, `--duration` and `--dt` to match the available
 common HOS/CFD record; duration must be an integer multiple of dt.
 All drivers have identical clocks. The generator refuses to regenerate a
 directory that already contains incident kinematics.
+`--current-x` defaults to 1.5 m/s and records the required current in the decks
+and manifest; it does not generate incident fields. If the precursor current
+changes, update HOS, both SGF inputs, the Morison command and this option together.
 Input-file hashes in the manifest detect inconsistent manual edits; regenerate
 after changing templates or numerical settings rather than mixing modified decks
 with old geometry/grid metadata.
@@ -121,7 +148,9 @@ directions and current. Do not copy one jacket's incident files to the others.
 ### Information still needed
 
 1. The actual demonstration HOS modes and input/log files, covering the selected
-   physical window without precursor recycling.
+   physical window without precursor recycling. Verify the actual run used
+   `i_curr=1`, `u_0=1.5`; editing the HOS input does not modify existing modes,
+   and their header does not encode current. Retain `Results/current.dat`.
 2. Registered full fields on the grids in `case.json`: three velocities,
    three **Eulerian fixed-position** accelerations, dynamic pressure, and surface
    elevation. A single elevation trace is insufficient.
@@ -160,7 +189,7 @@ For each jacket, prepare a directory of memory-mappable `.npy` arrays:
 |---|---|
 | `x.npy`, `y.npy`, `z.npy` | Exact local axes from `case.json`; z bottom-to-top |
 | `time.npy` | `(nt,)`, **physical** times |
-| `velocity.npy` | `(nt,nz,ny,nx,3)`, world-axis components, m/s |
+| `velocity.npy` | `(nt,nz,ny,nx,3)`, total wave-plus-current world-axis components, m/s |
 | `acceleration.npy` | Same shape, fixed-position partial du/dt, m/s^2 |
 | `dynamic_pressure.npy` | `(nt,nz,ny,nx)`, Pa, hydrostatic excluded |
 | `elevation.npy` | `(nt,ny,nx)`, surface z relative to SWL, m |
@@ -172,6 +201,8 @@ Include `metadata.json`, identifying the actual source and verified mapping:
   "jacket": 1,
   "registration_confirmed": true,
   "source": "Actual precursor/run, coordinate and clock mapping, reconstruction settings",
+  "velocity_convention": "total",
+  "uniform_current": [1.5, 0, 0],
   "dynamic_pressure_units": "Pa",
   "acceleration_convention": "eulerian"
 }
@@ -189,8 +220,10 @@ python3 hydrodyn/wavekin.py validate hydrodyn_outputs/case
 The exporter writes each jacket's `kinematics/jacketN/waves.{Vxi,Vyi,Vzi,Axi,Ayi,Azi,DynP,Elev}`.
 It memory-maps the arrays and writes one time frame at a time; it does not need
 a huge compressed NPZ in memory. It checks axes, clock, finite data and
-registration metadata, refuses overwrites, and marks failed exports INCOMPLETE.
+registration and current metadata, refuses overwrites, and marks failed exports INCOMPLETE.
 Validation reads all 32 files and checks every numeric row.
+Metadata checks do not prove that the declared current was actually included:
+also compare total velocities at the incident registration probes.
 
 Alternatively, supply native files directly, following the **v5.0.0 parser**:
 each file has **exactly 13 header lines**, then x-fast rows. For each inclusive
@@ -233,10 +266,11 @@ Built the standalone driver from the v5.0.0 source and ran:
 - Four WaveMod=6 decks with separately exported synthetic constant-current
   fields; all terminated normally, with valid requested channel units. HydroDyn's
   summaries confirmed the published radii and exactly members 1-15 flooded.
-- The force scaling check `Fx(jacket N)/Fx(jacket 1)=N^2` for speeds N m/s,
+- The force scaling check `Fx(jacket N)/Fx(jacket 1)=N^2` for synthetic total
+  speeds `1.5*N` m/s (not the real four-jacket sea),
   plus the output collection, SWL-to-base moment shift and CFD-comparison handoff.
 
-All 15 focused HydroDyn/Morison tests passed with numerical RuntimeWarnings
+All 18 focused HydroDyn/Morison tests passed with numerical RuntimeWarnings
 treated as errors. To repeat executable tests, set `HYDRODYN_DRIVER` to the
 absolute standalone executable path:
 

@@ -34,11 +34,13 @@ def axes(config):
 
 
 def generate(output, duration=3435, dt=0.15, physical_time_origin=240,
-             nx_half=6, ny_half=6, nz=31, member_ds=0.5):
+             nx_half=6, ny_half=6, nz=31, member_ds=0.5, current_x=1.5):
     if not np.all(np.isfinite([duration, dt, physical_time_origin, member_ds])):
         raise ValueError("Times and member spacing must be finite")
     if duration <= 0 or dt <= 0 or physical_time_origin < 0 or member_ds <= 0:
         raise ValueError("Duration, dt and member spacing must be positive; time origin nonnegative")
+    if not np.isfinite(current_x):
+        raise ValueError("Uniform x-current must be finite")
     if any(not isinstance(n, int) or n < 2 for n in (nx_half, ny_half, nz)):
         raise ValueError("Grid counts must be integers at least two")
     intervals = round(duration / dt)
@@ -71,6 +73,7 @@ def generate(output, duration=3435, dt=0.15, physical_time_origin=240,
                   ny_half=ny_half, nz=nz, member_ds=member_ds,
                   jacket_base_origins=ORIGINS.tolist(), flooding="members 1-15; FillFSLoc=0; FillDens=1025",
                   marine_growth=False, wave_stretching="vertical; unchanged below SWL, constant above SWL",
+                  uniform_current=[current_x, 0, 0],
                   hydrodyn_moment_origin=[0, 0, 0], exported_moment_origin="each jacket base at z=-60")
     x, y, z = axes(config)
     config["grid"] = dict(x=x.tolist(), y=y.tolist(), z=z.tolist(), order="time,z,y,x; x fastest")
@@ -79,12 +82,14 @@ def generate(output, duration=3435, dt=0.15, physical_time_origin=240,
         title = f"Jacket {jacket}: same incident realization sampled at its world location; external data required."
         (output / f"jacket{jacket}_SeaState.dat").write_text(render("SeaState.dat", dict(
             TITLE=title, NX=nx_half, NY=ny_half, NZ=nz, WAVEMOD=6, DURATION=f"{intervals * dt:.12g}",
+            CURRENT_DESCRIPTION=f"INCLUDED IN EXTERNAL VELOCITIES: Ux={current_x:+g} m/s; DO NOT ADD TWICE",
             DT=f"{dt:.12g}", KINROOT=f"kinematics/jacket{jacket}/waves")))
         (output / f"jacket{jacket}.dvr").write_text(render("driver.inp", dict(
             TITLE=title, SEASTATE=f"jacket{jacket}_SeaState.dat", ROOT=f"jacket{jacket}",
             NSAMPLES=intervals + 1, DT=f"{dt:.12g}")))
     (output / "smoke_SeaState.dat").write_text(render("SeaState.dat", dict(
         TITLE="SYNTHETIC regular-wave parser/run smoke test; not demonstration data.",
+        CURRENT_DESCRIPTION="NONE: WAVE-ONLY SYNTHETIC SMOKE TEST",
         NX=3, NY=3, NZ=9, WAVEMOD=1, DURATION=36.75, DT=0.15, KINROOT="unused")))
     (output / "smoke_regular.dvr").write_text(render("driver.inp", dict(
         TITLE="SYNTHETIC regular-wave smoke test; fixed published-diameter flooded-leg jacket.",
@@ -107,6 +112,8 @@ def main():
     parser.add_argument("--ny-half", type=int, default=6)
     parser.add_argument("--nz", type=int, default=31)
     parser.add_argument("--member-ds", type=float, default=0.5)
+    parser.add_argument("--current-x", type=float, default=1.5,
+                        help="Expected uniform x-current in external total velocities [m/s]; demo: 1.5")
     args = parser.parse_args()
     config = generate(**vars(args))
     print(f"Generated four external-wave cases for {config['openfast_version']}; no real kinematics supplied.")

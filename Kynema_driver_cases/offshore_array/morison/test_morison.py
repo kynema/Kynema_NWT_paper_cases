@@ -3,13 +3,14 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 
 from compare import read_cfd, welch
 from hos import sample
 from model import ORIGINS, array_loads, build_geometry, integrate, wet_geometry
-from run import demo, geometry_id, load_geometry, prepare, run_external
+from run import demo, geometry_id, load_geometry, prepare, run_external, run_hos
 
 
 def single_strip(a=(0, 0, -2), b=(0, 0, 0)):
@@ -81,6 +82,61 @@ class MorisonTests(unittest.TestCase):
         np.testing.assert_allclose(a, [[4, 3, 4]], atol=1e-10)
         with self.assertRaisesRegex(ValueError, "outside"):
             sample(Field(), geometry, 0, [0, 0])
+
+    def test_hos_uniform_current_changes_drag_not_wave_acceleration(self):
+        class Field:
+            end = 10
+
+            def elevation(self, xy, time):
+                return np.zeros(len(xy))
+
+            def velocity(self, xyz, time):
+                return np.tile([0.5 * time**2, 0, 0], (len(xyz), 1))
+
+        geometry = single_strip()
+        for current, speed in ((0, 0.5), (1.5, 2), (-1.5, -1), (1.5, 2)):
+            with self.subTest(current=current):
+                eta, u, a = sample(Field(), geometry, 1, [0, 0], current_x=current)
+                np.testing.assert_allclose(u, [[speed, 0, 0]])
+                np.testing.assert_allclose(a, [[1, 0, 0]], atol=1e-10)
+                loads = integrate(geometry, eta, u, a, rho=1000, cd=1, cm=0)
+                self.assertAlmostEqual(loads[0, 0], 1000 * speed * abs(speed))
+        dry = single_strip(a=(0, 0, 1), b=(0, 0, 2))
+        _, u, a = sample(Field(), dry, 1, [0, 0], current_x=1.5)
+        np.testing.assert_array_equal(u, [[0, 0, 0]])
+        np.testing.assert_array_equal(a, [[0, 0, 0]])
+        with self.assertRaisesRegex(ValueError, "current_x"):
+            sample(Field(), geometry, 1, [0, 0], current_x=np.nan)
+
+    def test_hos_command_records_total_current_loads(self):
+        class Field:
+            end = 10
+
+            def elevation(self, xy, time):
+                return np.zeros(len(xy))
+
+            def velocity(self, xyz, time):
+                return np.zeros_like(xyz)
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            geometry = prepare(root / "prepared", 1)
+            args = argparse.Namespace(
+                geometry=root / "prepared/geometry.npz", library=root / "libGrid2Grid.so",
+                modes=root / "modes.dat", registration_confirmed=True, current_x=1.5,
+                start=1, stop=2, dt=1, hos_xy_shift=[750, 750], hos_time_shift=0,
+                derivative_step=0.02, zmax=16, nz=100, cd=1.05, cm=1.2,
+                output=root / "loads.npz")
+            with patch("hos.Grid2Grid", return_value=Field()):
+                run_hos(args)
+            n = len(geometry["a"])
+            expected = integrate(geometry, np.zeros((n, 2)), np.tile([1.5, 0, 0], (n, 1)),
+                                 np.zeros((n, 3)))
+            with np.load(args.output, allow_pickle=False) as data:
+                np.testing.assert_allclose(data["loads"], [expected, expected])
+                metadata = json.loads(str(data["metadata"]))
+                self.assertEqual(metadata["uniform_current"], [1.5, 0, 0])
+                self.assertEqual(metadata["velocity_convention"], "total")
 
     def test_invalid_inputs_fail_explicitly(self):
         geometry = single_strip()

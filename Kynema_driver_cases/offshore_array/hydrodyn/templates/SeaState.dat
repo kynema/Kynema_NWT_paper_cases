@@ -45,7 +45,7 @@ False WvSumQTF
 200 CrestTime
 0 CrestXi
 0 CrestYi
----------------- CURRENT (INCLUDED IN EXTERNAL VELOCITIES) ----------------
+---------------- CURRENT (@CURRENT_DESCRIPTION@) ----------------
 0 CurrMod
 0 CurrSSV0
 "DEFAULT" CurrSSDir

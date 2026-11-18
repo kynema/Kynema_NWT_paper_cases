@@ -53,6 +53,7 @@ def collect(case, output):
                     model="standalone fixed-jacket HydroDyn Morison with hydrostatics and axial loads",
                     source_sha256=SOURCE_SHA256, density=1025, Cd=1.05, Ca=0.2, Cp=1,
                     flooding=config["flooding"], marine_growth=False, wave_stretching=config["wave_stretching"],
+                    uniform_current=config["uniform_current"], velocity_convention="total",
                     input_sha256=config["input_sha256"],
                     physical_time_origin=config["physical_time_origin"],
                     exclusions=["structural response", "diffraction", "inter-jacket shielding",

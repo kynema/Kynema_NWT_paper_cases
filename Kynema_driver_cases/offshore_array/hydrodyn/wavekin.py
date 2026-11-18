@@ -39,6 +39,12 @@ def export(case, jacket, bundle):
         raise ValueError("Bundle requires a nonempty provenance source string")
     if metadata["dynamic_pressure_units"] != "Pa" or metadata["acceleration_convention"] != "eulerian":
         raise ValueError("Expected dynamic pressure in Pa and Eulerian fixed-position acceleration")
+    if metadata.get("velocity_convention") != "total":
+        raise ValueError("Bundle velocity_convention must be 'total': wave plus current, included exactly once")
+    current = np.asarray(metadata.get("uniform_current"), dtype=float)
+    if (current.shape != (3,) or not np.all(np.isfinite(current)) or
+            not np.allclose(current, config["uniform_current"], rtol=0, atol=1e-12)):
+        raise ValueError("Bundle uniform_current must match case.json in world-axis m/s")
     x, y, z = axes(config)
     for key, expected in (("x", x), ("y", y), ("z", z)):
         actual = np.load(bundle / f"{key}.npy", allow_pickle=False)

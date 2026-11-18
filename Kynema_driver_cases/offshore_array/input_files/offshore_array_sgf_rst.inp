@@ -17,6 +17,7 @@ time.cfl              =   0.95         # CFL factor
 #            INPUT AND OUTPUT           #
 #.......................................#
 io.restart_file               =  ../chk46000
+# Use only a checkpoint from a run with the same +1.5 m/s mean current.
 time.plot_interval            =  50       # Steps between plot files
 time.checkpoint_interval      =  1000       # Steps between checkpoint files
 io.outputs = density velocity p vof ow_levelset ow_velocity w2a_levelset w2a_velocity levelset reference_pressure
@@ -34,6 +35,9 @@ sampling.morison_registration.snap_to_cell_center = false
 OceanWaves.label = W2A1
 OceanWaves.W2A1.type = W2AWaves
 OceanWaves.W2A1.HOS_modes_filename = /scratch/mkuhn/HOS_Ocean_precursor_halflength_current/Results/modes_HOS_SWENSE.dat
+OceanWaves.W2A1.HOS_simulation_is_ocean = true
+# Match input_demo.dat: i_curr=1, dimensional u_0=+1.5 m/s; SWENSE modes are wave-only.
+OceanWaves.W2A1.current = 1.5
 OceanWaves.W2A1.relax_zone_gen_length=240
 OceanWaves.W2A1.numerical_beach_length=240
 OceanWaves.W2A1.numerical_beach_length_factor=1.5

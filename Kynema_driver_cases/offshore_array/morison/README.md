@@ -68,8 +68,21 @@ convergence. This is centerline wetting, not partially submerged cross-section
 integration or a breaking-wave/slamming model.
 
 Velocity and acceleration must be **undisturbed incident** fields with the same
-directional phases, physical clock and current as CFD. `hos` uses the full
-HOS velocity field, but its inertia term uses a fixed-position **Eulerian**
+directional phases, physical clock and current as CFD. The demo's
+[HOS input](../../../HOS_Ocean_cases/input_demo.dat) specifies `i_curr=1`,
+`u_0=1.5 m/s`: a uniform **+x current**. Both SGF inputs use
+`OceanWaves.W2A1.current = 1.5`. This initializes liquid current even with
+`initialize_wave_field=false`; a restart must use a checkpoint already carrying
+that mean flow. Do not reuse the old no-current CFD checkpoint for validation.
+
+HOS-Ocean's SWENSE modes contain wave velocity, not the separately prescribed
+background current. The `hos` command therefore requires `--current-x 1.5` for
+this demo and adds it once at wet sampling points, before normal projection
+and nonlinear drag evaluation. A steady current contributes no Eulerian time
+derivative. Do not add a Doppler shift or translate coordinates by `U*t`: the
+precursor's wave evolution already includes current advection.
+
+The inertia term uses a fixed-position **Eulerian**
 time derivative, a conventional leading-order engineering approximation.
 It does **not** implement nonlinear pressure-gradient/Froude-Krylov integration
 or convective acceleration. It never differentiates velocity along the moving
@@ -141,9 +154,11 @@ versus local-flow differences, not to drive the incident Morison calculation.
 
 The configured HOS offsets are -750 m in x/y, suggesting
 `HOS_xy = CFD_world_xy + (750,750)`; **verify this with probes for your executable**.
-Also check HOS initialization time, wave direction, velocity units, and any
-current included in the exported modes. A directory name containing `current`
-does not establish the velocity convention. No current is silently added here.
+Also check HOS initialization time, wave direction and velocity units.
+The actual modes must have been evolved with the same `i_curr=1`, `u_0=1.5`
+configuration; changing the input text does not change an existing modes file.
+Neither the SWENSE header nor a directory name containing `current` establishes
+the precursor current. Use the actual run's input/log and `Results/current.dat`.
 Check logs for HOS end-of-file/recycling warnings: a recycled precursor is
 not the same physical time record. The adapter rejects times beyond its record.
 
@@ -172,7 +187,8 @@ points = np.loadtxt("input_files/morison_registration_points.txt", skiprows=1)
 # Example candidate mapping only; compare at the recorded SGF sample times.
 time = 240.0
 print(hos.elevation(points[:, :2] + [750, 750], time))
-print(hos.velocity(points + [750, 750, 0], time))
+# Raw Grid2Grid velocities are wave-only; match SGF's total ow_velocity.
+print(hos.velocity(points + [750, 750, 0], time) + [1.5, 0, 0])
 ```
 
 After confirming registration, run, for example:
@@ -182,6 +198,7 @@ python3 morison/run.py hos morison_outputs/prepared/geometry.npz \
   --library /absolute/path/libGrid2Grid.so \
   --modes /absolute/path/modes_HOS_SWENSE.dat \
   --hos-xy-shift 750 750 --hos-time-shift 0 --registration-confirmed \
+  --current-x 1.5 \
   --start 240 --stop 3600 --dt 0.15 --derivative-step 0.02 \
   --output morison_outputs/morison_loads.npz
 ```
@@ -206,7 +223,7 @@ differences with the probes before attributing discrepancies to CFD.
 |---|---|
 | `time` | `(nt,)`, strictly increasing physical seconds |
 | `eta` | `(nt,nstrip,2)`, endpoint surface elevations, world z |
-| `velocity` | `(nt,nstrip,3)`, incident velocity at each **wet midpoint**, m/s |
+| `velocity` | `(nt,nstrip,3)`, total incident wave-plus-current velocity at each **wet midpoint**, m/s |
 | `acceleration` | same shape, fixed-position partial du/dt, m/s^2 |
 | `acceleration_convention` | scalar string `"eulerian"` |
 | `geometry_sha256` | scalar string from prepared `geometry.json` |
@@ -218,6 +235,10 @@ accelerations may be finite zeros. Do not sample at the original dry midpoint
 and pass those values as wet-midpoint kinematics. All arrays must be finite.
 This interface also supports incident kinematics exported from a matching
 **no-structure** SGF run; native disturbed CFD velocities are not appropriate.
+For this demo, include the +1.5 m/s x-current exactly once. `integrate` does not
+add current to external arrays; SGF `ow_velocity` already contains it, whereas
+raw `w2a_velocity` and raw Grid2Grid velocities do not. Include the current and
+velocity convention in the `source` provenance string.
 
 ```bash
 python3 morison/run.py integrate morison_outputs/prepared/geometry.npz \
@@ -280,10 +301,11 @@ The demo is **synthetic only**: analytic directional linear-wave kinematics
 drive the model, and the fabricated "CFD" files are exactly 1.1 times its loads.
 It checks the complete file/comparison/plot workflow, not CFD agreement.
 Tests also cover analytic current/inertia loads, inclined members, partial
-wetting, moment transport, fixed-position differentiation, restart rejection
-and the cross-phase sign.
+wetting, moment transport, fixed-position differentiation, following/opposing
+current addition, current-aware load provenance, restart rejection and the
+cross-phase sign.
 
-Validation performed: all 10 focused tests passed with numerical RuntimeWarnings
+Validation performed: all 12 focused tests passed with numerical RuntimeWarnings
 treated as errors; the synthetic reports and figures were generated and checked.
 The current mesh audit returned the expected mismatch (exit 2).
 No actual demonstration HOS modes, CFD force histories, compatible Grid2Grid

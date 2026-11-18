@@ -45,7 +45,7 @@ False WvSumQTF
 200 CrestTime
 0 CrestXi
 0 CrestYi
----------------- CURRENT (INCLUDED IN EXTERNAL VELOCITIES) ----------------
+---------------- CURRENT (NONE: WAVE-ONLY SYNTHETIC SMOKE TEST) ----------------
 0 CurrMod
 0 CurrSSV0
 "DEFAULT" CurrSSDir

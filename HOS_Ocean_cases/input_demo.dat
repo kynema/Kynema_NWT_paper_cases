@@ -20,10 +20,10 @@ Dommermuth initialisation                        :: Ta            :: 10.
 Gravity (in m.s-2)                               :: grav          :: 9.81
 Mean water depth (real number in m)              :: depth         :: 60.
 --- Current parameters
-Current type (0 ; 1 or 2)                        :: i_curr        :: 0
-Constant current velocity (m/s)                  :: u_0           :: 1.0
-Length varying current zone 1                    :: L_curr_1      :: 10.0
-Length varying current zone 2                    :: L_curr_2      :: 10.0
+Current type (0 ; 1 or 2)                        :: i_curr        :: 1
+Constant current velocity (m/s)                  :: u_0           :: 1.5
+Length varying current zone 1                    :: L_curr_1      :: 0.0
+Length varying current zone 2                    :: L_curr_2      :: 0.0
 --- Bathymetry parameters
 Definition of bottom profile used                :: i_bottom      :: 0
 Choice of the method (0,1,2) for wave-bottom     :: i_method      :: 0

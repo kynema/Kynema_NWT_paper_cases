@@ -20,7 +20,7 @@ def make_bundle(path, config, jacket, varying=False):
     time = config["physical_time_origin"] + np.arange(config["samples"]) * config["dt"]
     shape = (len(time), len(z), len(y), len(x))
     velocity = np.zeros(shape + (3,))
-    velocity[..., 0] = jacket
+    velocity[..., 0] = config["uniform_current"][0] * jacket
     if varying:
         velocity[..., 0] = np.arange(np.prod(shape)).reshape(shape)
     for name, value in dict(x=x, y=y, z=z, time=time, velocity=velocity,
@@ -30,6 +30,7 @@ def make_bundle(path, config, jacket, varying=False):
         np.save(path / f"{name}.npy", value)
     (path / "metadata.json").write_text(json.dumps(dict(
         jacket=jacket, registration_confirmed=True, source="SYNTHETIC test field, not demonstration data",
+        uniform_current=config["uniform_current"], velocity_convention="total",
         dynamic_pressure_units="Pa", acceleration_convention="eulerian")))
 
 
@@ -96,9 +97,32 @@ class HydroDynTests(unittest.TestCase):
 
     def test_time_and_grid_validation(self):
         with tempfile.TemporaryDirectory() as directory:
-            for kwargs in ({"duration": 1, "dt": 0.3}, {"nz": 1}, {"dt": 0}, {"member_ds": -1}):
+            for kwargs in ({"duration": 1, "dt": 0.3}, {"nz": 1}, {"dt": 0}, {"member_ds": -1},
+                           {"current_x": np.nan}):
                 with self.assertRaises(ValueError):
                     generate(directory, **kwargs)
+
+    def test_current_contract_rejects_wave_only_or_mismatched_bundles(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            case, bundle = root / "case", root / "bundle"
+            config = generate(case, duration=0.3, dt=0.15, nx_half=2, ny_half=2, nz=3,
+                              current_x=-1.5)
+            make_bundle(bundle, config, 1)
+            metadata = json.loads((bundle / "metadata.json").read_text())
+            for change in ({"velocity_convention": "wave-only"}, {"velocity_convention": None},
+                           {"uniform_current": [0, 0, 0]}, {"uniform_current": [1.5, 0, 0]},
+                           {"uniform_current": [-1.5]}, {"uniform_current": None},
+                           {"uniform_current": [np.nan, 0, 0]}):
+                with self.subTest(change=change):
+                    (bundle / "metadata.json").write_text(json.dumps({**metadata, **change}))
+                    with self.assertRaisesRegex(ValueError, "velocity_convention|uniform_current"):
+                        export(case, 1, bundle)
+                    self.assertFalse((case / "kinematics").exists())
+            (bundle / "metadata.json").write_text(json.dumps(metadata))
+            export(case, 1, bundle)
+            values = np.loadtxt(case / "kinematics/jacket1/waves.Vxi", skiprows=13)
+            np.testing.assert_allclose(values, -1.5)
 
     @unittest.skipUnless(os.environ.get("HYDRODYN_DRIVER"), "Set HYDRODYN_DRIVER for executable smoke tests")
     def test_actual_driver_regular_and_external_four_jackets(self):
