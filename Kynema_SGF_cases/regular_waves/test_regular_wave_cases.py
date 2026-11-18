@@ -54,17 +54,25 @@ class SweepTests(unittest.TestCase):
                 expected = case["mesh_target_cells_per_height"] * case["aspect_ratio"]
                 self.assertLess(abs(cph / expected - 1), 0.05)
                 wavelength = float(p["OceanWaves.Wave1.wave_length"])
+                self.assertEqual(p["zlo.type"], '"slip_wall"')
+                self.assertEqual(p["zhi.type"], '"slip_wall"')
+                self.assertEqual(float(p["OceanWaves.Wave1.numerical_beach_length"]), wavelength)
+                self.assertEqual(float(p["OceanWaves.Wave1.numerical_beach_length_factor"]), 2)
+                self.assertEqual(p["OceanWaves.Wave1.initialize_wave_field"], "true")
+                self.assertEqual(float(p["OceanWaves.Wave1.timeramp_period"]), 0)
                 self.assertGreaterEqual((hi[0] - lo[0]) / wavelength, 10)
                 self.assertAlmostEqual(-lo[2], float(p["OceanWaves.Wave1.water_depth"]))
                 self.assertGreaterEqual(case["analysis_time_s"][1] - case["analysis_time_s"][0], 40 * 1.59)
                 self.assertGreater(float(p["time.stop_time"]), case["analysis_time_s"][1])
-                self.assertEqual(p["time.fixed_dt"], p["time.initial_dt"])
+                self.assertNotIn("time.initial_dt", p)
+                self.assertAlmostEqual(float(p["time.fixed_dt"]), case["dt_s"])
                 for group, label, phase in (
                     ("sampling_fs_domain", "fs_domain", "vof"),
                     ("sampling_fs_target", "fs_target", "ow_vof"),
                 ):
-                    self.assertEqual(p[f"{group}.{label}.phase_field"], phase)
-                    self.assertEqual(p[f"{group}.output_frequency"], str(case["output_interval_steps"]))
+                    self.assertEqual(p.get(f"{group}.{label}.phase_field", "vof"), phase)
+                    self.assertEqual(int(p.get(f"{group}.output_frequency", "10")),
+                                     case["output_interval_steps"])
                     self.assertLess(case["sample_dt_s"], 1 / (2 * case["frequency_band_hz"][1]))
                 boxes = render_refinement(case).splitlines()
                 for row in (2, 4):
@@ -74,6 +82,30 @@ class SweepTests(unittest.TestCase):
                     self.assertLessEqual(box[2], -0.5 * case["wave_height_m"])
                     self.assertTrue(np.all(box[:3] >= lo))
                     self.assertTrue(np.all(box[3:] <= hi))
+
+    def test_default_controls_are_omitted_but_physics_remains_explicit(self):
+        omitted = (
+            "time.max_step", "time.plot_interval", "time.checkpoint_interval",
+            "incflo.use_godunov", "incflo.godunov_type", "incflo.diffusione_type",
+            "MultiPhase.verbose", "amr.ref_ratio", "amr.blocking_factor_x",
+            "amr.regrid_int", "sampling_fs_domain.fs_domain.phase_field",
+        )
+        for case in self.cases:
+            with self.subTest(case=case["id"]):
+                p = parameters(render_input(case))
+                for key in omitted:
+                    self.assertNotIn(key, p)
+                self.assertEqual(p["incflo.diffusion_type"], "0")
+                self.assertEqual(float(p.get("time.cfl", "1")), case["nominal_advective_cfl"])
+                self.assertEqual("time.cfl" in p, case["nominal_advective_cfl"] != 1)
+                for group in ("sampling_fs_domain", "sampling_fs_target"):
+                    self.assertEqual(f"{group}.output_frequency" in p,
+                                     case["output_interval_steps"] != 10)
+                self.assertEqual(p["incflo.gravity"], "0 0 -9.81")
+                self.assertEqual(float(p["transport.viscosity_fluid1"]), 0)
+                self.assertEqual(float(p["transport.viscosity_fluid2"]), 0)
+                self.assertEqual(float(p["OceanWaves.Wave1.zero_sea_level"]), 0)
+                self.assertEqual(float(p["OceanWaves.Wave1.wave_phase_offset_radians"]), 0)
 
     def test_timesteps_preserve_cfl_and_match_solver_vof_convention(self):
         phase = np.linspace(0, 2 * np.pi, 65536, endpoint=False)

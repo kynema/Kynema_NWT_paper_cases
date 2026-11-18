@@ -25,9 +25,13 @@ Residual weak nonlinearity can still produce an accuracy floor relative to an
 Airy target, especially over a long propagation distance.
 
 Depth is reduced from 18 m to one wavelength: kd = 2*pi, still effectively
-deep water. The upper boundary is z=2 m, well above the waves. Generation
-occupies x=0--4 m, and an 8 m numerical beach occupies x=40--48 m with length
-factor 1. Both families start from a flat interface and ramp forcing over 3.2 s.
+deep water. The upper boundary is z=2 m, well above the waves. Both the bottom
+and upper air boundary use slip walls, permitting tangential flow while
+preventing penetration. Generation occupies x=0--4 m, and a one-wavelength
+(4 m) numerical beach occupies x=44--48 m with length factor 2. The factor
+increases the effective damping length without enlarging the physical beach.
+Both families initialize the wave field at t=0 and apply forcing without a
+startup ramp (`initialize_wave_field = true`, `timeramp_period = 0`).
 
 For affordability, these are **quasi-2-D extrusions**, not spanwise-convergence
 studies. The periodic y extent contains two base cells (eight at the finest
@@ -35,9 +39,33 @@ level). Its physical width is 2*dx_base and changes with mesh resolution, while
 dx=dy at every level. Two static factor-two refinement levels cover the wave
 surface: level 1 is requested over -4H <= z <= 4H and level 2 over
 -2H <= z <= 2H, across the full tank and span. Refinement boxes may expand to
-cell/block boundaries. Full-volume plot and checkpoint output is disabled;
-enable it explicitly when needed. The finest linear and highest-aspect-ratio
-runs remain the most expensive.
+cell/block boundaries. Full-volume plot and checkpoint output is disabled by
+default; enable it explicitly when needed. The finest linear and
+highest-aspect-ratio runs remain the most expensive.
+
+### Explicit physics and omitted defaults
+
+Generated inputs retain physical models, material properties, gravity, domain
+geometry, boundary conditions and wave parameters explicitly, even when their
+values match defaults. Matching non-physics defaults are omitted, checked
+against local Kynema-SGF revision `e216ca023` and its AMReX submodule:
+
+* Godunov advection and WENO-Z reconstruction remain active by default.
+* Unlimited step count, disabled volume/checkpoint output and zero MultiPhase
+  verbosity need no explicit entries.
+* AMR refinement ratios default to 2 and x blocking factors to 8. The nondefault
+  y/z blocking factors of 2 remain explicit.
+* Regridding is disabled by default through `time.regrid_interval = -1`;
+  the unused `amr.regrid_int` entry is not emitted.
+* `time.cfl` is omitted only for CFL=1 cases, matching the solver default.
+  Every nominal CFL remains recorded in `case.json`.
+* Sampler output frequency is omitted only when it equals the default 10 steps.
+  The computed-surface phase field defaults to `vof`; the target's `ow_vof`
+  selection remains explicit.
+
+Nondefault controls remain explicit, including `incflo.diffusion_type = 0`
+for explicit diffusion treatment. This corrects the former misspelling
+`incflo.diffusione_type`, which did not select a diffusion scheme.
 
 ## Three sweeps, for each wave model
 
@@ -95,8 +123,9 @@ This is not phase-speed Courant number c*dt/dx.
 
 These are **expected, not guaranteed measured CFLs**. Air motion, interface-cell
 extrapolation, reflection, startup and spatial discretization can change the
-actual maximum. `time.fixed_dt` and `time.initial_dt` are equal; `time.cfl` records
-the target but does not adapt a fixed timestep. Check reported CFL after startup
+actual maximum. Timesteps are prescribed solely by `time.fixed_dt`; the nominal CFL
+is recorded in `case.json`, with nondefault values also set by `time.cfl`.
+That option does not adapt a fixed timestep. Check reported CFL after startup
 and calibrate dt if exact achieved-CFL matching is required. In particular,
 the CFL=1 cases sit near the VOF limit and may fail if the estimate is low.
 Do not silently reduce dt in a failed run and keep the original metadata.
@@ -141,11 +170,13 @@ Regeneration overwrites generated inputs and metadata, not simulation results.
 Two synchronized `FreeSurfaceSampler` groups record the same **561 points along
 x=8--36 m at y=0** (0.05 m spacing, 80 samples per wavelength):
 
-* `sampling_fs_domain` uses `phase_field = vof` for the computed surface.
+* `sampling_fs_domain` uses the default `phase_field = vof` for the computed
+  surface.
 * `sampling_fs_target` uses `phase_field = ow_vof` for the prescribed target.
 
 Setting sampled `fields = ow_vof` alone would **not** locate the target surface;
-the explicit `phase_field` is essential. No beach-interpolation option is used,
+the explicit target `phase_field = ow_vof` is essential. No beach-interpolation
+option is used,
 and all sampling points lie outside the forcing and damping regions.
 The physical output interval is approximately 0.04 s, rounded to at least one
 fixed timestep. Coarsest runs sample every step, giving intervals up to 0.086 s.
