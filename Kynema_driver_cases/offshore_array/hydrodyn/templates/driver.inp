@@ -1,0 +1,25 @@
+HydroDyn standalone driver -- OpenFAST v5.0.0
+@TITLE@
+True Echo
+---------------- ENVIRONMENT ----------------
+9.81 Gravity
+1025 WtrDens
+60 WtrDpth
+0 MSL2SWL
+---------------- MODULE FILES ----------------
+"HydroDyn.dat" HDInputFile
+"@SEASTATE@" SeaStateInputFile
+"@ROOT@" OutRootName
+False Linearize
+@NSAMPLES@ NSteps
+@DT@ TimeInterval
+---------------- FIXED PLATFORM ----------------
+0 PRPInputsMod
+0 NAddDOF
+0 PtfmRefzt
+"" PRPInputsFile
+---------------- STEADY INPUTS ----------------
+0 0 0 0 0 0 uPRPInSteady
+0 0 0 0 0 0 uDotPRPInSteady
+0 0 0 0 0 0 uDotDotPRPInSteady
+END

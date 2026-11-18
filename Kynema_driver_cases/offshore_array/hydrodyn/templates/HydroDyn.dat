@@ -1,0 +1,135 @@
+HydroDyn -- OpenFAST v5.0.0
+Published-diameter fixed jacket; bare tubes; flooded legs 1-15.
+True Echo
+---------------- POTENTIAL FLOW (DISABLED) ----------------
+0 PotMod
+0 ExctnMod
+0 ExctnDisp
+0 ExctnCutOff
+0 PtfmYMod
+0 PtfmRefY
+0.01 PtfmYCutOff
+36 NExctnHdg
+0 RdtnMod
+60 RdtnTMax
+"default" RdtnDT
+1 NBody
+1 NBodyMod
+"unused" PotFile
+1 WAMITULEN
+0 PtfmRefxt
+0 PtfmRefyt
+0 PtfmRefzt
+0 PtfmRefztRot
+0 PtfmVol0
+0 PtfmCOBxt
+0 PtfmCOByt
+0 NAddDOF
+---------------- SECOND-ORDER POTENTIAL FLOW (DISABLED) ----------------
+0 MnDrift
+0 NewmanApp
+0 DiffQTF
+0 SumQTF
+---------------- NO GLOBAL PRELOAD, STIFFNESS OR DAMPING ----------------
+0 AddF0
+0
+0
+0
+0
+0
+0 0 0 0 0 0 AddCLin
+0 0 0 0 0 0
+0 0 0 0 0 0
+0 0 0 0 0 0
+0 0 0 0 0 0
+0 0 0 0 0 0
+0 0 0 0 0 0 AddBLin
+0 0 0 0 0 0
+0 0 0 0 0 0
+0 0 0 0 0 0
+0 0 0 0 0 0
+0 0 0 0 0 0
+0 0 0 0 0 0 AddBQuad
+0 0 0 0 0 0
+0 0 0 0 0 0
+0 0 0 0 0 0
+0 0 0 0 0 0
+0 0 0 0 0 0
+---------------- STRIP THEORY ----------------
+0 WaveDisp
+1 AMMod
+1 HstMod
+---------------- JOINT AXIAL COEFFICIENTS ----------------
+1 NAxCoef
+AxCoefID AxCd AxCa AxCp AxFDMod AxVnCOff AxFDLoFSc
+(-) (-) (-) (-) (-) (Hz) (-)
+1 0 0 1 0 -1 1
+---------------- JOINTS ----------------
+27 NJoints
+JointID Jointxi Jointyi Jointzi JointAxID JointOvrlp
+(-) (m) (m) (m) (-) (-)
+@JOINTS@
+---------------- CYLINDRICAL PROPERTIES ----------------
+9 NPropSetsCyl
+MPropSetID PropD PropThck
+(-) (m) (m)
+@PROPERTIES@
+---------------- RECTANGULAR PROPERTIES (NONE) ----------------
+0 NPropSetsRec
+MPropSetID PropA PropB PropThck
+(-) (m) (m) (m)
+---------------- SIMPLE CYLINDRICAL COEFFICIENTS ----------------
+SimplCd SimplCdMG SimplCa SimplCaMG SimplCp SimplCpMG SimplAxCd SimplAxCdMG SimplAxCa SimplAxCaMG SimplAxCp SimplAxCpMG SimplCb SimplCbMG
+(-) (-) (-) (-) (-) (-) (-) (-) (-) (-) (-) (-) (-) (-)
+1.05 1.05 0.2 0.2 1 1 1.05 1.05 0.2 0.2 1 1 1 1
+---------------- SIMPLE RECTANGULAR COEFFICIENTS (UNUSED) ----------------
+SimplCdA SimplCdAMG SimplCdB SimplCdBMG SimplCaA SimplCaAMG SimplCaB SimplCaBMG SimplCp SimplCpMG SimplAxCd SimplAxCdMG SimplAxCa SimplAxCaMG SimplAxCp SimplAxCpMG SimplCb SimplCbMG
+(-) (-) (-) (-) (-) (-) (-) (-) (-) (-) (-) (-) (-) (-) (-) (-) (-) (-)
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1
+---------------- DEPTH COEFFICIENTS: CYLINDRICAL ----------------
+0 NCoefDpthCyl
+Dpth DpthCd DpthCdMG DpthCa DpthCaMG DpthCp DpthCpMG DpthAxCd DpthAxCdMG DpthAxCa DpthAxCaMG DpthAxCp DpthAxCpMG DpthCb DpthCbMG
+(m) (-) (-) (-) (-) (-) (-) (-) (-) (-) (-) (-) (-) (-) (-)
+---------------- DEPTH COEFFICIENTS: RECTANGULAR ----------------
+0 NCoefDpthRec
+Dpth DpthCdA DpthCdAMG DpthCdB DpthCdBMG DpthCaA DpthCaAMG DpthCaB DpthCaBMG DpthCp DpthCpMG DpthAxCd DpthAxCdMG DpthAxCa DpthAxCaMG DpthAxCp DpthAxCpMG DpthCb DpthCbMG
+(m) (-) (-) (-) (-) (-) (-) (-) (-) (-) (-) (-) (-) (-) (-) (-) (-) (-) (-)
+---------------- MEMBER COEFFICIENTS: CYLINDRICAL ----------------
+0 NCoefMembersCyl
+MemberID coefficients
+(-) (-)
+---------------- MEMBER COEFFICIENTS: RECTANGULAR ----------------
+0 NCoefMembersRec
+MemberID coefficients
+(-) (-)
+---------------- MEMBERS ----------------
+57 NMembers
+MemberID MJointID1 MJointID2 MPropSetID1 MPropSetID2 MSecGeom MSpinOrient MDivSize MCoefMod MHstLMod PropPot
+(-) (-) (-) (-) (-) (-) (deg) (m) (-) (-) (-)
+@MEMBERS@
+---------------- FLOODED LEGS ----------------
+1 NFillGroups
+FillNumM FillMList FillFSLoc FillDens
+(-) (-) (m) (kg/m^3)
+15 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 0 1025
+---------------- NO MARINE GROWTH ----------------
+0 NMGDepths
+MGDpth MGThck MGDens
+(m) (m) (kg/m^3)
+---------------- MEMBER OUTPUTS ----------------
+0 NMOutputs
+MemberID NOutLoc NodeLocs
+(-) (-) (-)
+---------------- JOINT OUTPUTS ----------------
+0 NJOutputs
+0 JOutLst
+---------------- OUTPUT ----------------
+True HDSum
+False OutAll
+2 OutSwtch
+"ES22.13E3" OutFmt
+"A22" OutSFmt
+---------------- CHANNELS ----------------
+"HydroFxi, HydroFyi, HydroFzi"
+"HydroMxi, HydroMyi, HydroMzi"
+END

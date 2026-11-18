@@ -1,0 +1,76 @@
+SeaState -- OpenFAST v5.0.0
+SYNTHETIC regular-wave parser/run smoke test; not demonstration data.
+True Echo
+---------------- ENVIRONMENT ----------------
+"default" WtrDens
+"default" WtrDpth
+"default" MSL2SWL
+---------------- GRID ----------------
+25 X_HalfWidth
+25 Y_HalfWidth
+60 Z_Depth
+3 NX
+3 NY
+9 NZ
+---------------- WAVES ----------------
+1 WaveMod
+1 WaveStMod
+0 WvCrntMod
+36.75 WaveTMax
+0.15 WaveDT
+2 WaveHs
+12.25 WaveTp
+3.3 WavePkShp
+0 WvLowCOff
+100 WvHiCOff
+0 WaveDir
+0 WaveDirMod
+1 WaveDirSpread
+1 WaveNDir
+0 WaveDirRange
+123456789 WaveSeed(1)
+"RANLUX" WaveSeed(2)
+False WaveNDAmp
+"unused" WvKinFile
+---------------- SECOND ORDER ----------------
+False WvDiffQTF
+False WvSumQTF
+0 WvLowCOffD
+1.256637 WvHiCOffD
+0.618319 WvLowCOffS
+3.141593 WvHiCOffS
+---------------- CONSTRAINED WAVE ----------------
+0 ConstWaveMod
+15 CrestHmax
+200 CrestTime
+0 CrestXi
+0 CrestYi
+---------------- CURRENT (INCLUDED IN EXTERNAL VELOCITIES) ----------------
+0 CurrMod
+0 CurrSSV0
+"DEFAULT" CurrSSDir
+20 CurrNSRef
+0 CurrNSV0
+0 CurrNSDir
+0 CurrDIV
+0 CurrDIDir
+---------------- DIFFRACTION ----------------
+0 MCFD
+---------------- OUTPUT ----------------
+True SeaStSum
+2 OutSwtch
+"ES22.13E3" OutFmt
+"A22" OutSFmt
+1 NWaveElev
+0 WaveElevxi
+0 WaveElevyi
+3 NWaveKin
+0 0 0 WaveKinxi
+0 0 0 WaveKinyi
+-2 -15 -40 WaveKinzi
+---------------- CHANNELS ----------------
+"Wave1Elev"
+"FVel1xi, FVel1yi, FVel1zi"
+"FVel2xi, FVel2yi, FVel2zi"
+"FVel3xi, FVel3yi, FVel3zi"
+END

@@ -20,6 +20,16 @@ time.plot_interval            =  50       # Steps between plot files
 time.checkpoint_interval      =  1000       # Steps between checkpoint files
 io.outputs = density velocity p vof ow_levelset ow_velocity w2a_levelset w2a_velocity levelset reference_pressure
 
+# Incident-field registration checks for the Morison comparison (see ../morison/README.md).
+incflo.post_processing = sampling
+sampling.output_frequency = 5
+sampling.output_format = ascii
+sampling.labels = morison_registration
+sampling.fields = ow_velocity ow_levelset velocity vof
+sampling.morison_registration.type = ProbeSampler
+sampling.morison_registration.probe_location_file = input_files/morison_registration_points.txt
+sampling.morison_registration.snap_to_cell_center = false
+
 OceanWaves.label = W2A1
 OceanWaves.W2A1.type = W2AWaves
 OceanWaves.W2A1.HOS_modes_filename = /scratch/mkuhn/HOS_Ocean_precursor_halflength_current/Results/modes_HOS_SWENSE.dat

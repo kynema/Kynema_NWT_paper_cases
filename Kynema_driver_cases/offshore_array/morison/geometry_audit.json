@@ -1,0 +1,39 @@
+{
+  "mesh_name": "jacket_mesh_origin.exo",
+  "mesh_sha256": "7d1ebc64444a96ad6fff05753f4422b595672add58db592e8c68eb40e92dfb63",
+  "source_sha256": "a017b4d7711e3673e88f520dfe4f61a88e2086af10169607736319c68885549d",
+  "wall_nodes": 31329,
+  "wall_bounds": [
+    [
+      -18.993281323477497,
+      -12.213416247213939,
+      0.0
+    ],
+    [
+      18.993281323555678,
+      21.475208614068016,
+      74.10004071917315
+    ]
+  ],
+  "source_to_mesh_local_shift": [
+    0,
+    0,
+    60
+  ],
+  "surface_distance_m_by_diameter_scale": {
+    "1": {
+      "p10": 0.46797096452416476,
+      "median": 0.5171765742335659,
+      "p90": 0.6000306360924429,
+      "p95": 0.7003156095898054
+    },
+    "2": {
+      "p10": 6.632306131839628e-05,
+      "median": 0.01193651218671743,
+      "p90": 0.10688549332274981,
+      "p95": 0.26870652481906687
+    }
+  },
+  "status": "mismatch",
+  "note": "Nearest cylindrical sidewall residual, excluding member ends; not full CAD equivalence. Mesh intersections/caps can increase residuals. Only published diameters are used by the engineering model."
+}
