@@ -39,8 +39,11 @@ level). Its physical width is 2*dx_base and changes with mesh resolution, while
 dx=dy at every level. Two static factor-two refinement levels cover the wave
 surface: level 1 is requested over -4H <= z <= 4H and level 2 over
 -2H <= z <= 2H, across the full tank and span. Refinement boxes may expand to
-cell/block boundaries. Full-volume plot and checkpoint output is disabled by
-default; enable it explicitly when needed. The finest linear and
+cell/block boundaries. Full-volume plot output is disabled by default; enable
+it explicitly when needed. Checkpoints are written every ~32 s of simulated
+time (`time.checkpoint_interval`, in steps) so an interrupted long run can be
+restarted with `io.restart_file`; restarts continue the step count, so the
+sampler's step-based times stay valid. The finest linear and
 highest-aspect-ratio runs remain the most expensive.
 
 ### Explicit physics and omitted defaults
@@ -48,10 +51,11 @@ highest-aspect-ratio runs remain the most expensive.
 Generated inputs retain physical models, material properties, gravity, domain
 geometry, boundary conditions and wave parameters explicitly, even when their
 values match defaults. Matching non-physics defaults are omitted, checked
-against local Kynema-SGF revision `e216ca023` and its AMReX submodule:
+against local Kynema-SGF revision `e216ca023` and its AMReX submodule
+(CFL factor calibrated with `bdb43d8c`, which fixes a build error in `e216ca023`):
 
 * Godunov advection and WENO-Z reconstruction remain active by default.
-* Unlimited step count, disabled volume/checkpoint output and zero MultiPhase
+* Unlimited step count, disabled volume output and zero MultiPhase
   verbosity need no explicit entries.
 * AMR refinement ratios default to 2 and x blocking factors to 8. The nondefault
   y/z blocking factors of 2 remain explicit.
@@ -63,14 +67,33 @@ against local Kynema-SGF revision `e216ca023` and its AMReX submodule:
   The computed-surface phase field defaults to `vof`; the target's `ow_vof`
   selection remains explicit.
 
-Nondefault controls remain explicit, including `incflo.diffusion_type = 0`
-for explicit diffusion treatment. This corrects the former misspelling
-`incflo.diffusione_type`, which did not select a diffusion scheme.
+The diffusion scheme is left at the solver default (`incflo.diffusion_type`
+is not set), so viscous terms do not enter the explicit timestep limit.
+
+Both projections use the native AMG bottom solver
+(`nodal_proj.bottom_solver = amg`, `mac_proj.bottom_solver = amg`). With the
+default bottom solver the nodal projection did not converge on the two-cell
+periodic span: linear/mesh_cph1 hit the 200-iteration cap on every solve from
+the initial projection onward. With AMG it converges in 8--11 iterations (MAC
+11--15) on the same grid, matching an 8-cell-span grid with the default solver.
+Semicoarsening made both solves slower (nodal 63--124 iterations) and
+`do_nsolve` had no effect, so neither is used.
+
+### Fluid properties
+
+Air and water use realistic properties (20 C, 1 atm) rather than an inviscid
+idealization, because the air above the interface undergoes strong rotational
+motion: water density 1000 kg/m^3, air density 1.204 kg/m^3, dynamic viscosity
+1.002e-3 Pa s (water) and 1.81e-5 Pa s (air). The accuracy targets remain the
+inviscid wave theories. `xlo.density` is set to the air density: the
+`wave_generation` ghost-cell fill blends the water density with the existing
+Dirichlet value, which it assumes is the gas density (solver default 1.0), and
+the solver's startup density check aborts if they disagree.
 
 ## Three sweeps, for each wave model
 
 All quoted cell sizes are on the **finest surface mesh**. The baseline uses
-isotropic cells, approximately five cells per height, and nominal CFL 0.5.
+isotropic cells, approximately five cells per height, and target CFL 0.8.
 
 ### 1. Mesh resolution
 
@@ -83,13 +106,13 @@ isotropic cells, approximately five cells per height, and nominal CFL 0.5.
 | 20 | 0.003125 | 20.372 | 0.01875 | 19.120 |
 
 Grid-aligned spacings keep all resolutions within 5% of the requested targets.
-The fixed timestep scales with cell size to preserve expected CFL 0.5.
+The fixed timestep scales with cell size to preserve target CFL 0.8.
 
 ### 2. Aspect ratio
 
 Use the five-cells-per-height baseline's dx=dy and vary **dx/dz = 1, 2, 4, 8**.
 Only dz changes; the lateral spacings and physical span remain fixed. Reduce dt
-with dz to preserve expected CFL 0.5. H/dz consequently increases with aspect
+with dz to preserve target CFL 0.8. H/dz consequently increases with aspect
 ratio; it is not held at five.
 
 ### 3. CFL
@@ -106,13 +129,32 @@ timestep, CFL target, and sampling cadence.
 
 ### CFL definition and limitations
 
-For inviscid VOF with force-CFL disabled, Kynema-SGF's interface convention is
+With force-CFL disabled, Kynema-SGF's convective interface convention is
+estimated from the orbital surface velocities as
 
 ```text
 C_est = 2 dt max_phase (|u_surface|/dx + |w_surface|/dz).
 ```
 
-The generator selects dt = C_requested / estimated_rate. Linear velocities
+The orbital estimate ignores the air above the interface, which moves faster
+than the water. The generator therefore applies a measured, per-family
+correction factor F and selects dt = C_requested / (F * estimated_rate), so
+C_requested targets the solver-reported **maximum** CFL. Both factors were
+calibrated on the family's mesh_cph1 case with kynema-sgf `bdb43d8c`,
+realistic properties and full 0--192 s runs:
+
+| Family | Calibration dt [s] | Max reported CFL | C_est at that dt | Ratio | F |
+|---|---:|---:|---:|---:|---:|
+| linear | 0.0081237 | 0.4026 (t=103.8 s) | 0.04762 | 8.455 | 8.5 |
+| stokes5 | 0.028854 | 0.7857 (t=186 s) | 0.18720 | 4.197 | 4.2 |
+
+The reported CFL rises from its startup value to a plateau after the waves
+reach the beach (from about 24 s for stokes5 and 45--55 s for linear). With
+the uncorrected estimate (F = 1) at nominal CFL 0.5, both cph1 cases went
+unstable within seconds; linear/mesh_cph1 also went unstable with F = 4.2
+(velocities of about 1 m/s grew in the first air cells above the interface
+within 2--3 steps). Each F comes from one coarse case; the ratio may differ
+with resolution, so check reported CFLs. Linear velocities
 are evaluated on the Airy surface with finite-depth vertical dependence.
 Stokes5 planning velocities use the deep-water limit of Fenton's fifth-order,
 H-based expansion evaluated on its surface. At kd=2*pi this is an appropriate
@@ -121,9 +163,9 @@ Phase maxima are sampled over 8192 points. The solver also checks bulk velocity
 Courant numbers; its doubled interface rate is expected to dominate here.
 This is not phase-speed Courant number c*dt/dx.
 
-These are **expected, not guaranteed measured CFLs**. Air motion, interface-cell
-extrapolation, reflection, startup and spatial discretization can change the
-actual maximum. Timesteps are prescribed solely by `time.fixed_dt`; the nominal CFL
+These are **expected, not guaranteed measured CFLs**. Interface-cell
+extrapolation, reflection, startup and spatial discretization can still change
+the actual maximum relative to the single calibration case. Timesteps are prescribed solely by `time.fixed_dt`; the nominal CFL
 is recorded in `case.json`, with nondefault values also set by `time.cfl`.
 That option does not adapt a fixed timestep. Check reported CFL after startup
 and calibrate dt if exact achieved-CFL matching is required. In particular,

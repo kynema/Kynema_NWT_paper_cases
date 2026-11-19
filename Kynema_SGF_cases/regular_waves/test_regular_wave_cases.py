@@ -9,7 +9,10 @@ import unittest
 import numpy as np
 
 from analyze_case import accuracy_metrics, analyze, main
-from generate_cases import case_specs, generate, render_input, render_refinement
+from generate_cases import (
+    AIR_DENSITY, AIR_VISCOSITY, CHECKPOINT_TIME_S, FAMILIES, WATER_DENSITY, WATER_VISCOSITY,
+    case_specs, generate, render_input, render_refinement,
+)
 
 
 def parameters(text):
@@ -85,7 +88,7 @@ class SweepTests(unittest.TestCase):
 
     def test_default_controls_are_omitted_but_physics_remains_explicit(self):
         omitted = (
-            "time.max_step", "time.plot_interval", "time.checkpoint_interval",
+            "time.max_step", "time.plot_interval", "time.checkpoint_time_interval",
             "incflo.use_godunov", "incflo.godunov_type", "incflo.diffusione_type",
             "MultiPhase.verbose", "amr.ref_ratio", "amr.blocking_factor_x",
             "amr.regrid_int", "sampling_fs_domain.fs_domain.phase_field",
@@ -95,15 +98,27 @@ class SweepTests(unittest.TestCase):
                 p = parameters(render_input(case))
                 for key in omitted:
                     self.assertNotIn(key, p)
-                self.assertEqual(p["incflo.diffusion_type"], "0")
+                self.assertNotIn("incflo.diffusion_type", p)
+                # Infrequent restart checkpoints (~CHECKPOINT_TIME_S of simulated time).
+                self.assertEqual(int(p["time.checkpoint_interval"]), case["checkpoint_interval_steps"])
+                self.assertAlmostEqual(case["checkpoint_interval_steps"] * case["dt_s"],
+                                       CHECKPOINT_TIME_S, delta=case["dt_s"])
+                # Native AMG bottom solver: the default bicgstab bottom solve stalls the nodal
+                # projection on the two-cell periodic span (linear/mesh_cph1 hit 200 iterations).
+                self.assertEqual(p["nodal_proj.bottom_solver"], "amg")
+                self.assertEqual(p["mac_proj.bottom_solver"], "amg")
                 self.assertEqual(float(p.get("time.cfl", "1")), case["nominal_advective_cfl"])
                 self.assertEqual("time.cfl" in p, case["nominal_advective_cfl"] != 1)
                 for group in ("sampling_fs_domain", "sampling_fs_target"):
                     self.assertEqual(f"{group}.output_frequency" in p,
                                      case["output_interval_steps"] != 10)
                 self.assertEqual(p["incflo.gravity"], "0 0 -9.81")
-                self.assertEqual(float(p["transport.viscosity_fluid1"]), 0)
-                self.assertEqual(float(p["transport.viscosity_fluid2"]), 0)
+                self.assertEqual(float(p["transport.viscosity_fluid1"]), WATER_VISCOSITY)
+                self.assertEqual(float(p["transport.viscosity_fluid2"]), AIR_VISCOSITY)
+                self.assertEqual(float(p["MultiPhase.density_fluid1"]), WATER_DENSITY)
+                self.assertEqual(float(p["MultiPhase.density_fluid2"]), AIR_DENSITY)
+                # wave_generation ghost fill takes the gas density from xlo.density
+                self.assertEqual(float(p["xlo.density"]), AIR_DENSITY)
                 self.assertEqual(float(p["OceanWaves.Wave1.zero_sea_level"]), 0)
                 self.assertEqual(float(p["OceanWaves.Wave1.wave_phase_offset_radians"]), 0)
 
@@ -120,8 +135,11 @@ class SweepTests(unittest.TestCase):
             aspect = [case for case in cases if "aspect_ratio" in case["sweeps"]]
             self.assertTrue(np.all(np.diff([case["dt_s"] for case in aspect]) < 0))
             for case in cases:
-                self.assertAlmostEqual(case["dt_s"] * case["cfl_rate_estimate_per_s"],
-                                       case["nominal_advective_cfl"])
+                factor = FAMILIES[family]["cfl_rate_factor"]
+                self.assertEqual(case["cfl_rate_factor"], factor)
+                self.assertAlmostEqual(
+                    case["dt_s"] * factor * case["cfl_rate_estimate_per_s"],
+                    case["nominal_advective_cfl"])
                 if family == "linear":
                     a = case["wave_height_m"] / 2
                     k = 2 * np.pi / case["wave_length_m"]
@@ -131,7 +149,7 @@ class SweepTests(unittest.TestCase):
                     u = a * omega * np.cosh(k * (d + eta)) / np.sinh(k * d) * np.cos(phase)
                     w = a * omega * np.sinh(k * (d + eta)) / np.sinh(k * d) * np.sin(phase)
                     expected = 2 * np.max(abs(u) / case["dx_m"] + abs(w) / case["dz_m"])
-                    self.assertAlmostEqual(case["dt_s"] * expected,
+                    self.assertAlmostEqual(case["dt_s"] * factor * expected,
                                            case["nominal_advective_cfl"], delta=1e-6)
 
     def test_generation_is_reproducible_and_linear_steepness_is_bounded(self):
