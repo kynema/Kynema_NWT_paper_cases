@@ -19,9 +19,18 @@ WATER_DENSITY = 1000.0
 AIR_DENSITY = 1.204
 WATER_VISCOSITY = 1.002e-3
 AIR_VISCOSITY = 1.81e-5
+# Time stepping is adaptive (time.fixed_dt = -1): time.cfl is the solver's maximum
+# CFL. time.initial_dt holds the calibrated estimate below; the solver uses it only
+# if the initial velocity is zero, but it also documents the expected dt.
 # Checkpoints for restarting interrupted long runs: every CHECKPOINT_TIME_S of
 # simulated time, converted to a step interval (fixed dt).
 CHECKPOINT_TIME_S = 32.0
+# Free-surface sampler cadence: ~0.08 s keeps >2x margin below the Nyquist interval
+# of the 5th harmonic (~0.16 s at 0.625 Hz) while halving the old 0.04 s output.
+SAMPLE_TIME_S = 0.08
+# Default analysis window: waves are initialized at t=0; beach reflections and one
+# re-reflection have crossed the sampling line by ~55 s (group speed ~1.25 m/s).
+ANALYSIS_TIME_S = (64.0, 190.0)
 ASPECT_RATIOS = (1, 2, 4, 8)
 CFLS = (0.1, 0.2, 0.5, 0.8, 1.0)
 CPH_TARGETS = (1, 2.5, 5, 10, 20)
@@ -30,24 +39,30 @@ FAMILIES = {
         "wave_type": "LinearWaves",
         "wave_height_m": WAVELENGTH * 0.05 / math.pi,
         "spacings": (0.0625, 0.025, 0.0125, 0.00625, 0.003125),
-        # Measured/estimated CFL ratio: the orbital-velocity estimate ignores the
-        # faster air motion near the interface, so dt = CFL / (factor * estimate)
-        # targets the solver-reported maximum CFL. Calibrated per family.
-        "cfl_rate_factor": 8.5,
+        # dt = CFL / (F * stability_multiplier * orbital-velocity rate estimate).
+        # F is the measured/estimated CFL ratio of well-resolved runs: the estimate
+        # ignores faster air motion near the interface. With F fixed, dt scales with
+        # the cell size. Poorly resolved meshes need extra stability margin, keyed by
+        # target cells per wave height. Calibration: v3 runs (kynema-sgf bdb43d8c,
+        # realistic properties), max reported CFL over the run vs. the estimate.
+        "cfl_rate_factor": 2.1,
+        "stability_multipliers": {1: 4.3, 2.5: 4.0, 5: 1.8},
         "cfl_rate_factor_source": (
-            "linear/mesh_cph1, kynema-sgf bdb43d8c, realistic properties, ny=2, amg bottom "
-            "solvers, fixed dt 0.0081237 s: max reported CFL 0.4026 (t=103.75 s) / estimate "
-            "0.047619 = 8.455 over 0-192 s (rounded up to 8.5)"
+            "v3 linear runs, measured/estimated max CFL: cph1 8.88, cph2.5 8.22, cph5 3.72, "
+            "cph10 2.08, cph20 >=1.55 (run ended before the plateau); F=2.1 from cph10, "
+            "multipliers bring cph1/2.5/5 to an effective 9.03/8.4/3.78"
         ),
     },
     "stokes5": {
         "wave_type": "StokesWaves",
         "wave_height_m": 0.3585,
         "spacings": (0.375, 0.15, 0.075, 0.0375, 0.01875),
-        "cfl_rate_factor": 4.2,
+        "cfl_rate_factor": 1.9,
+        "stability_multipliers": {1: 2.25},
         "cfl_rate_factor_source": (
-            "stokes5/mesh_cph1, kynema-sgf bdb43d8c, realistic properties, fixed dt 0.028854 s: "
-            "max reported CFL 0.7857 / estimate 0.18720 = 4.197 over 0-192 s (rounded up to 4.2)"
+            "v3 stokes5 runs, measured/estimated max CFL: cph1 4.17, cph2.5 1.84, cph5 1.56, "
+            "cph10 1.69, cph20 1.67; F=1.9 from the well-resolved cases, multiplier brings "
+            "cph1 to an effective 4.275"
         ),
     },
 }
@@ -125,9 +140,8 @@ def case_specs():
                 raise ValueError(f"{family}/{name}: grid violates mesh blocking factors")
             # Kynema-SGF's VOF convention doubles the summed interface rate.
             rate = 2 * max(abs(u) / dx + abs(w) / dz for u, w in velocities)
-            dt = cfl / (wave["cfl_rate_factor"] * rate)
-            interval = max(1, round(0.04 / dt))
-            checkpoint_interval = max(1, round(CHECKPOINT_TIME_S / dt))
+            multiplier = wave["stability_multipliers"].get(cph, 1.0)
+            dt = cfl / (wave["cfl_rate_factor"] * multiplier * rate)
             cases.append({
                 "id": f"{family}/{name}",
                 "family": family,
@@ -151,23 +165,25 @@ def case_specs():
                 "cfl_rate_estimate_per_s": rate,
                 "cfl_estimate_model": "2*max_phase(|u_surface|/dx + |w_surface|/dz)",
                 "cfl_rate_factor": wave["cfl_rate_factor"],
+                "stability_multiplier": multiplier,
+                "effective_cfl_rate_factor": wave["cfl_rate_factor"] * multiplier,
                 "cfl_rate_factor_source": wave["cfl_rate_factor_source"],
-                "dt_model": "nominal_advective_cfl / (cfl_rate_factor * cfl_rate_estimate_per_s)",
+                "initial_dt_model": ("nominal_advective_cfl / (cfl_rate_factor * stability_multiplier"
+                             " * cfl_rate_estimate_per_s)"),
                 "water_density_kg_m3": WATER_DENSITY,
                 "air_density_kg_m3": AIR_DENSITY,
                 "water_dynamic_viscosity_Pa_s": WATER_VISCOSITY,
                 "air_dynamic_viscosity_Pa_s": AIR_VISCOSITY,
                 "u_peak_estimate_m_per_s": max(abs(u) for u, _ in velocities),
                 "w_peak_estimate_m_per_s": max(abs(w) for _, w in velocities),
-                "dt_s": dt,
+                "time_stepping": "adaptive",
+                "initial_dt_s": dt,
                 "stop_time_s": 192.0,
-                "output_interval_steps": interval,
-                "checkpoint_interval_steps": checkpoint_interval,
-                "checkpoint_interval_s": checkpoint_interval * dt,
-                "sample_dt_s": interval * dt,
+                "sample_time_interval_s": SAMPLE_TIME_S,
+                "checkpoint_time_interval_s": CHECKPOINT_TIME_S,
                 "sample_x_m": [8.0, 36.0],
                 "sample_points": 561,
-                "analysis_time_s": [112.0, 176.0],
+                "analysis_time_s": list(ANALYSIS_TIME_S),
                 "frequency_band_hz": [0.4, 0.85],
             })
     return cases
@@ -178,18 +194,17 @@ def numbers(values):
 
 
 def render_input(case):
-    dt = f"{case['dt_s']:.16g}"
-    cfl_setting = (
-        f"time.cfl = {case['nominal_advective_cfl']:g}\n"
-        if case["nominal_advective_cfl"] != 1.0 else ""
-    )
+    initial_dt = f"{case['initial_dt_s']:.16g}"
     stokes_order = "OceanWaves.Wave1.order = 5\n" if case["family"] == "stokes5" else ""
     text = f"""# Generated by generate_cases.py; see case.json for sweep and sampling metadata.
-# dt = CFL / (factor * orbital-velocity rate estimate); verify actual CFL in solver logs.
+# Adaptive dt: time.cfl is the solver's maximum CFL. initial_dt is the calibrated
+# estimate CFL / (factor * multiplier * orbital-velocity rate); see case.json.
 time.stop_time = {case['stop_time_s']:g}
-time.fixed_dt = {dt}
-{cfl_setting}time.use_force_cfl = false
-time.checkpoint_interval = {case['checkpoint_interval_steps']}
+time.fixed_dt = -1
+time.initial_dt = {initial_dt}
+time.cfl = {case['nominal_advective_cfl']:g}
+time.use_force_cfl = false
+time.checkpoint_time_interval = {case['checkpoint_time_interval_s']:g}
 
 transport.model = TwoPhaseTransport
 transport.viscosity_fluid1 = {WATER_VISCOSITY:g}
@@ -244,16 +259,13 @@ incflo.post_processing = sampling_fs_domain sampling_fs_target
         ("sampling_fs_domain", "fs_domain", "vof"),
         ("sampling_fs_target", "fs_target", "ow_vof"),
     ):
-        frequency_setting = (
-            f"{group}.output_frequency = {case['output_interval_steps']}\n"
-            if case["output_interval_steps"] != 10 else ""
-        )
+        frequency_setting = f"{group}.output_time_interval = {case['sample_time_interval_s']:g}\n"
         phase_setting = (
             f"{group}.{label}.phase_field = {phase_field}\n"
             if phase_field != "vof" else ""
         )
         text += f"""
-{frequency_setting}{group}.output_format = ascii
+{frequency_setting}{group}.output_format = native
 {group}.labels = {label}
 {group}.fields = {phase_field}
 {group}.{label}.type = FreeSurfaceSampler
@@ -285,7 +297,7 @@ def generate(output):
         (directory / "case.json").write_text(json.dumps(case, indent=2, allow_nan=False) + "\n")
     columns = [
         "id", "cells_per_height", "dx_m", "dy_m", "dz_m", "aspect_ratio",
-        "nominal_advective_cfl", "dt_s", "sample_dt_s",
+        "nominal_advective_cfl", "initial_dt_s", "sample_time_interval_s",
     ]
     with (output / "sweep_summary.csv").open("w", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=columns, extrasaction="ignore", lineterminator="\n")

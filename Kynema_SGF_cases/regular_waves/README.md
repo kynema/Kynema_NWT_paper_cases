@@ -40,10 +40,10 @@ dx=dy at every level. Two static factor-two refinement levels cover the wave
 surface: level 1 is requested over -4H <= z <= 4H and level 2 over
 -2H <= z <= 2H, across the full tank and span. Refinement boxes may expand to
 cell/block boundaries. Full-volume plot output is disabled by default; enable
-it explicitly when needed. Checkpoints are written every ~32 s of simulated
-time (`time.checkpoint_interval`, in steps) so an interrupted long run can be
-restarted with `io.restart_file`; restarts continue the step count, so the
-sampler's step-based times stay valid. The finest linear and
+it explicitly when needed. Checkpoints are written every 32 s of simulated
+time (`time.checkpoint_time_interval`) so an interrupted long run can be
+restarted with `io.restart_file`; sampler outputs carry their own times, so a
+restarted run's output stays consistent. The finest linear and
 highest-aspect-ratio runs remain the most expensive.
 
 ### Explicit physics and omitted defaults
@@ -106,7 +106,7 @@ isotropic cells, approximately five cells per height, and target CFL 0.8.
 | 20 | 0.003125 | 20.372 | 0.01875 | 19.120 |
 
 Grid-aligned spacings keep all resolutions within 5% of the requested targets.
-The fixed timestep scales with cell size to preserve target CFL 0.8.
+Time stepping is adaptive with `time.cfl = 0.8` (see below).
 
 ### 2. Aspect ratio
 
@@ -118,8 +118,8 @@ ratio; it is not held at five.
 ### 3. CFL
 
 Use the same isotropic baseline mesh and vary nominal CFL through
-**0.1, 0.2, 0.5, 0.8, 1.0**, changing only dt and the sampling interval in steps.
-The physical sampling cadence remains close to 0.04 s.
+**0.1, 0.2, 0.5, 0.8, 1.0**, changing only `time.cfl`.
+The physical sampling cadence remains close to 0.08 s.
 
 The shared baseline `mesh_cph5` belongs to all three sweeps: there are
 **12 unique runs per family, 24 total**, not three copies of each baseline.
@@ -136,25 +136,44 @@ estimated from the orbital surface velocities as
 C_est = 2 dt max_phase (|u_surface|/dx + |w_surface|/dz).
 ```
 
-The orbital estimate ignores the air above the interface, which moves faster
-than the water. The generator therefore applies a measured, per-family
-correction factor F and selects dt = C_requested / (F * estimated_rate), so
-C_requested targets the solver-reported **maximum** CFL. Both factors were
-calibrated on the family's mesh_cph1 case with kynema-sgf `bdb43d8c`,
-realistic properties and full 0--192 s runs:
+**Time stepping is adaptive** (`time.fixed_dt = -1`): the solver sets each
+dt so its reported CFL equals `time.cfl` (the requested CFL), starting from a
+tenth of that dt and growing at most 10% per step (solver defaults
+`init_shrink = 0.1`, `max_dt_growth = 0.1`). `time.initial_dt` records the
+calibrated estimate below; the solver only uses it when the initial velocity
+is zero, but it documents the expected dt and sizes the runs. The orbital
+estimate ignores the air above the interface, which moves faster than the
+water, so the estimate is
 
-| Family | Calibration dt [s] | Max reported CFL | C_est at that dt | Ratio | F |
-|---|---:|---:|---:|---:|---:|
-| linear | 0.0081237 | 0.4026 (t=103.8 s) | 0.04762 | 8.455 | 8.5 |
-| stokes5 | 0.028854 | 0.7857 (t=186 s) | 0.18720 | 4.197 | 4.2 |
+```text
+initial_dt = C_requested / (F * S(cph) * estimated_rate),
+```
 
-The reported CFL rises from its startup value to a plateau after the waves
-reach the beach (from about 24 s for stokes5 and 45--55 s for linear). With
-the uncorrected estimate (F = 1) at nominal CFL 0.5, both cph1 cases went
-unstable within seconds; linear/mesh_cph1 also went unstable with F = 4.2
-(velocities of about 1 m/s grew in the first air cells above the interface
-within 2--3 steps). Each F comes from one coarse case; the ratio may differ
-with resolution, so check reported CFLs. Linear velocities
+which targets the solver-reported **maximum** CFL. F is a per-family
+factor measured on well-resolved runs; because it is fixed, dt scales with the
+cell size there. Poorly resolved meshes need an additional stability multiplier
+S, keyed by target cells per wave height (1 elsewhere). Calibration used the v3
+runs (kynema-sgf `bdb43d8c`, realistic properties), with the measured maximum
+CFL over the run divided by the estimate at the run's dt:
+
+| Target H/dz | linear ratio | stokes5 ratio |
+|---:|---:|---:|
+| 1 | 8.88 | 4.17 |
+| 2.5 | 8.22 | 1.84 |
+| 5 | 3.72 | 1.56 |
+| 10 | 2.08 | 1.69 |
+| 20 | >= 1.55 (run ended before the plateau) | 1.67 |
+
+Chosen values: **linear F = 2.1** with S = 4.3, 4.0, 1.8 at H/dz targets 1,
+2.5, 5 (effective 9.03, 8.4, 3.78); **stokes5 F = 1.9** with S = 2.25 at target
+1 (effective 4.275). Predicted maximum CFLs at the 0.8 target are about
+0.78--0.79 for the multiplier cases, 0.79 for linear cph10, 0.66--0.78 for
+well-resolved stokes5, and at most 0.8 for linear cph20 by trend (unconfirmed).
+The CFL-sweep and aspect-ratio cases use the multiplier of their H/dz=5
+baseline; the aspect-ratio cases (finer dz) are untested. The reported CFL
+rises from its startup value to a plateau after the waves reach the beach (from
+about 24 s for stokes5 and 45--55 s for linear). With the uncorrected estimate
+(F = 1) at nominal CFL 0.5, both cph1 cases went unstable within seconds. Linear velocities
 are evaluated on the Airy surface with finite-depth vertical dependence.
 Stokes5 planning velocities use the deep-water limit of Fenton's fifth-order,
 H-based expansion evaluated on its surface. At kd=2*pi this is an appropriate
@@ -163,14 +182,14 @@ Phase maxima are sampled over 8192 points. The solver also checks bulk velocity
 Courant numbers; its doubled interface rate is expected to dominate here.
 This is not phase-speed Courant number c*dt/dx.
 
-These are **expected, not guaranteed measured CFLs**. Interface-cell
-extrapolation, reflection, startup and spatial discretization can still change
-the actual maximum relative to the single calibration case. Timesteps are prescribed solely by `time.fixed_dt`; the nominal CFL
-is recorded in `case.json`, with nondefault values also set by `time.cfl`.
-That option does not adapt a fixed timestep. Check reported CFL after startup
-and calibrate dt if exact achieved-CFL matching is required. In particular,
-the CFL=1 cases sit near the VOF limit and may fail if the estimate is low.
-Do not silently reduce dt in a failed run and keep the original metadata.
+With fixed timesteps calibrated this way (v5), the cph1 cases and
+linear/mesh_cph2p5 ran stably near CFL 0.8, but finer meshes went unstable
+well before their convective CFL reached 0.8 (linear cph10 diverged at step 2;
+stokes5 cph5--cph20 developed CFL bursts of 7--10). A short dt scan showed
+stokes5/mesh_cph10 going unstable after 6--8 s at fixed dt giving CFL of only
+about 0.67--0.87 before the burst. Adaptive stepping limits the reported CFL,
+but whether CFL 0.8 is stable on the finer meshes must be checked in the logs;
+the CFL=1 cases sit at the VOF limit.
 
 The conventions and target-field sampling options were checked against
 [Kynema-SGF's CFL calculation](https://github.com/kynema/kynema-sgf/blob/main/src/incflo_compute_dt.cpp),
@@ -220,34 +239,75 @@ Setting sampled `fields = ow_vof` alone would **not** locate the target surface;
 the explicit target `phase_field = ow_vof` is essential. No beach-interpolation
 option is used,
 and all sampling points lie outside the forcing and damping regions.
-The physical output interval is approximately 0.04 s, rounded to at least one
-fixed timestep. Coarsest runs sample every step, giving intervals up to 0.086 s.
+Samplers write every 0.08 s of simulated time (`output_time_interval`), more
+than a factor of two below the 0.16 s Nyquist interval of the fifth harmonic.
+With adaptive dt each output falls on the first step after an interval
+boundary, so output times are not exactly uniform. Sampling covers the whole
+run.
 Sampler resolution is not CFD resolution: oversampling a coarse mesh does not
 recover unresolved harmonics or interface shape.
 
-ASCII profiles have a five-line header; the reader sorts unordered rows and
-uses the x,y,z columns. The configured upper x endpoint is dropped, leaving
-560 spatial samples for a periodic-length 28 m FFT. Time is inferred as
-`step * dt_s` from filenames and metadata; adaptive timesteps or time-offset
-restarts are not supported. Modern solver `_info.txt` sidecars are ignored.
+Samplers write AMReX native particle output (`output_format = native`): one
+`<label><step>/` directory per output, with the particle data in `particles/`
+and the output time at full precision in the directory's `Header`
+(`sampling_info.yaml` rounds it to six digits). The reader
+(`reflection_coeff_komega.load_profiles`) takes these times, sorts particles
+by x, and rejects duplicate times and gaps over 2.5 times the median output
+interval (including the outputs just outside the window). Legacy ASCII
+profiles (five-line header, archived data) carry no time and use
+`step * dt` with the fixed dt. The configured upper x endpoint is dropped,
+leaving 560 spatial samples for a periodic-length 28 m FFT.
+
+Non-uniform output times are handled as follows: accuracy norms weight each
+output by the time interval it represents (identical to the plain mean for
+uniform output); the joint harmonic fits use the actual times; and only the
+k-omega FFT linearly interpolates each x history onto a uniform grid at the
+median interval (recorded as `output_times.resampled_to_uniform_for_komega`).
+Because each output lands on the first step after an interval boundary,
+intervals range from about the interval minus to plus one dt (with coarse
+meshes, occasional gaps approach twice the interval). Harmonic Nyquist checks
+therefore use the median interval; the irregular-time least-squares fits do
+not alias, and an ill-conditioned fit raises an error.
+The interpolation shifts samples by at most one timestep and changes
+fundamental-band amplitudes by well under 1%, equally for incident and
+reflected waves.
+
+**Stuck sampler points.** In Kynema-SGF `bdb43d8c` (and earlier),
+`FreeSurfaceSampler::initialize` assigns each sample point to cells using face
+positions that each cell computes from its own centre (`xm -/+ 0.5*dx`).
+Neighbouring cells can round a shared face to opposite sides of a point that
+lies on it, so the point is owned by no cell at that level. It then keeps a
+constant fallback height: the domain bottom, or the top of the highest
+uncovered coarse water cell (the lower edge of the refined band). Which points
+fail depends on the compiler's floating-point transformations; an `icpx`
+replica of the arithmetic reproduces every stuck point observed in the v3
+runs, and only meshes whose cell size is an exact binary fraction (both
+mesh_cph1 cases) were unaffected. `analyze_case.py` now rejects any run in
+which a computed or target sample point never changes over the analysis window.
 
 ### Accuracy and reflection from every run
 
-The default window is **112 <= t < 176 s**, approximately 40 wave periods,
-with 0.015625 Hz nominal frequency resolution and 2*pi/28 rad/m wavenumber
-resolution. Startup is excluded: even a beach reflection returning to the
-upstream end of the sampling line has had time to traverse the tank.
-This is a defensible starting window, not a proof of stationarity. Compare
-two approximately 20-period subwindows:
+The default window is **64 <= t < 190 s**, approximately 79 wave periods,
+with about 0.008 Hz nominal frequency resolution and 2*pi/28 rad/m wavenumber
+resolution. Waves are initialized at t=0, so only startup transients and the
+spread of beach reflections need to be excluded: at the ~1.25 m/s group speed a
+beach reflection reaches the upstream end of the sampling line by ~29 s and its
+re-reflection from the generation zone reaches the downstream end by ~55 s.
+A sliding 32 s window scan of v3 runs supported this: reflection coefficients
+were steady from 32--48 s in the resolved cases, but the coarsest stokes5 case
+settled only after ~112 s, the no-beach-VOF linear/mesh_cph1 run took ~96 s,
+and stokes5/mesh_cph10 showed a slow, monotonic drift in phase error and L2
+throughout. This is a defensible window, not a proof of stationarity. Compare
+the two halves:
 
 ```sh
-python3 analyze_case.py runs/linear/mesh_cph5 --start 112 --end 144 \
+python3 analyze_case.py runs/linear/mesh_cph5 --start 64 --end 127 \
   --output runs/linear/mesh_cph5/analysis/early
-python3 analyze_case.py runs/linear/mesh_cph5 --start 144 --end 176 \
+python3 analyze_case.py runs/linear/mesh_cph5 --start 127 --end 190 \
   --output runs/linear/mesh_cph5/analysis/late
 ```
 
-Extend the run if those results disagree materially.
+Report the halves alongside the full window when they disagree materially.
 
 `analyze_case.py` writes `analysis/results.json` and `analysis/results.npz`:
 

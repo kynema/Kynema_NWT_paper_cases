@@ -2,7 +2,18 @@
 
 import numpy as np
 
-from reflection.reflection_coeff_komega import uniform_spacing
+from reflection.reflection_coeff_komega import resample_uniform
+
+
+def sample_spacing(times):
+    """(median, maximum) output interval of increasing, possibly non-uniform times."""
+    times = np.asarray(times, dtype=float)
+    if times.ndim != 1 or times.size < 2 or not np.isfinite(times).all():
+        raise ValueError("time must contain at least two finite values")
+    spacing = np.diff(times)
+    if spacing.min() <= 0:
+        raise ValueError("time must be strictly increasing")
+    return float(np.median(spacing)), float(spacing.max())
 
 
 def design_matrix(times, frequency, count):
@@ -15,20 +26,25 @@ def design_matrix(times, frequency, count):
 
 
 def estimate_frequency(times, target, frequency_band, count):
-    """Refine the target FFT peak by variable-projection least squares."""
-    dt = uniform_spacing(times, "time")
+    """Refine the target FFT peak by variable-projection least squares.
+
+    The FFT peak (initial guess only) uses probes resampled to uniform time if the
+    outputs are non-uniform; the least-squares refinement uses the actual times.
+    """
     low, high = frequency_band
     probes = target[:, np.unique(np.linspace(0, target.shape[1] - 1, min(16, target.shape[1])).astype(int))]
-    centered = probes - probes.mean(axis=0)
-    if not np.any(centered):
+    if not np.any(probes - probes.mean(axis=0)):
         raise ValueError("Target has no oscillatory signal for a fundamental-frequency fit")
-    frequencies = np.fft.rfftfreq(len(times), dt)
-    power = np.sum(abs(np.fft.rfft(centered * np.hanning(len(times))[:, None], axis=0))**2, axis=1)
+    grid, uniform_probes, _ = resample_uniform(times, probes)
+    dt = float(grid[1] - grid[0])
+    centered = uniform_probes - uniform_probes.mean(axis=0)
+    frequencies = np.fft.rfftfreq(len(grid), dt)
+    power = np.sum(abs(np.fft.rfft(centered * np.hanning(len(grid))[:, None], axis=0))**2, axis=1)
     in_band = np.flatnonzero((frequencies >= low) & (frequencies <= high))
     if not len(in_band):
         raise ValueError("No FFT frequencies in the fundamental band; use a longer record")
     peak = frequencies[in_band[np.argmax(power[in_band])]]
-    width = 1 / (len(times) * dt)
+    width = 1 / (len(grid) * dt)
 
     def objective(frequency):
         matrix = design_matrix(times, frequency, count)
@@ -64,7 +80,7 @@ def harmonic_analysis(times, eta, target, frequency_band=(0.4, 0.85), *,
     No time/phase alignment or independent signal-frequency fitting is applied.
     """
     times = np.asarray(times, dtype=float)
-    dt = uniform_spacing(times, "time")
+    typical_dt, max_dt = sample_spacing(times)
     eta, target = np.asarray(eta, dtype=float), np.asarray(target, dtype=float)
     if (eta.ndim != 2 or eta.shape != target.shape or eta.shape[0] != len(times)
             or eta.shape[1] < 1 or not np.isfinite(eta).all() or not np.isfinite(target).all()):
@@ -78,10 +94,14 @@ def harmonic_analysis(times, eta, target, frequency_band=(0.4, 0.85), *,
         raise ValueError("phase_floor_ratio must lie strictly between zero and one")
     estimate_from_target = frequency is None
     if estimate_from_target:
-        if count * high >= 0.5 / dt:
+        # The FFT peak search runs on data resampled at the median interval.
+        if count * high >= 0.5 / typical_dt:
             raise ValueError("Highest fitted harmonic would reach Nyquist within the search band")
         frequency = estimate_frequency(times, target, frequency_band, count)
-    if not np.isfinite(frequency) or not low < frequency < high or count * frequency >= 0.5 / dt:
+    # Nyquist uses the median output interval. Under adaptive dt the outputs are
+    # irregular (occasional gaps approach twice the interval); the least-squares fit
+    # does not alias on irregular times, and an ill-conditioned fit raises below.
+    if not np.isfinite(frequency) or not low < frequency < high or count * frequency >= 0.5 / typical_dt:
         raise ValueError("Fundamental must be inside the band and all harmonics below Nyquist")
     matrix = design_matrix(times, frequency, count)
     coefficients, _, rank, singular = np.linalg.lstsq(
@@ -142,9 +162,11 @@ def harmonic_analysis(times, eta, target, frequency_band=(0.4, 0.85), *,
     summary = {
         "fundamental_frequency_hz": frequency,
         "frequency_source": "target-only joint harmonic fit" if estimate_from_target else "specified common frequency",
-        "fit_duration_s": float(len(times) * dt),
-        "periods_in_record": float(len(times) * dt * frequency),
-        "short_record": bool(len(times) * dt * frequency < 10),
+        "fit_duration_s": float(times[-1] - times[0] + typical_dt),
+        "periods_in_record": float((times[-1] - times[0] + typical_dt) * frequency),
+        "short_record": bool((times[-1] - times[0] + typical_dt) * frequency < 10),
+        "median_sample_interval_s": typical_dt,
+        "max_sample_interval_s": max_dt,
         "phase_convention": "wrapped signal minus target; positive means temporal lag",
         "phase_floor_ratio": phase_floor_ratio,
         "phase_amplitude_floor_m": floor,

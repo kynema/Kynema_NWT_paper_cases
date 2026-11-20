@@ -1,4 +1,4 @@
-"""Directional k-omega reflection analysis of ASCII FreeSurfaceSampler profiles."""
+"""Directional k-omega reflection analysis of FreeSurfaceSampler profiles (ASCII or native)."""
 
 import argparse
 from dataclasses import dataclass
@@ -20,38 +20,147 @@ def uniform_spacing(values, name):
     return float(spacing[0])
 
 
-def load_profiles(directory, *, dt, output_interval, start, end, x_min, x_max,
+def read_ascii_profile(path):
+    """Return (count, x/y/z array, None) from a five-line-header ASCII sampler file.
+
+    Legacy ASCII profiles carry no physical time; callers infer it from the step.
+    """
+    with path.open() as stream:
+        count = int(stream.readline().strip())
+    return count, np.loadtxt(path, skiprows=5, usecols=(0, 1, 2), ndmin=2), None
+
+
+def read_native_time(output_dir):
+    """Physical time of a native sampler output from its plotfile-style Header.
+
+    The Header lists a version line, the variable count and names, the
+    dimension, then the time at full precision (sampling_info.yaml rounds it
+    to six significant digits). Returns None if no Header is present.
+    """
+    header = output_dir / "Header"
+    if not header.is_file():
+        return None
+    lines = header.read_text().splitlines()
+    nvars = int(lines[1])
+    return float(lines[2 + nvars + 1])
+
+
+def read_native_profile(path):
+    """Return (count, x/y/z array) from an AMReX native particle sampler directory.
+
+    `path` is the `<label><step>/particles` directory; the output time is read
+    from the parent directory's Header when present. The binary layout follows
+    kynema-sgf/tools/amrex_particle.py: per grid, (num_ints + 2) int32 values per
+    particle, followed by (ndim + num_reals) float64 values per particle whose
+    first ndim entries are the particle (sample) position.
+    """
+    with (path / "Header").open() as fh:
+        fh.readline()
+        ndim = int(fh.readline())
+        num_reals = int(fh.readline())
+        for _ in range(num_reals):
+            fh.readline()
+        num_ints = int(fh.readline())
+        for _ in range(num_ints):
+            fh.readline()
+        fh.readline()  # checkpoint flag
+        count = int(fh.readline())
+        fh.readline()  # next id
+        finest = int(fh.readline())
+        ngrids = [int(fh.readline()) for _ in range(finest + 1)]
+        grids = [[tuple(int(v) for v in fh.readline().split()) for _ in range(n)] for n in ngrids]
+    nints, nreals = num_ints + 2, ndim + num_reals
+    rows = []
+    for lev, ginfo in enumerate(grids):
+        for idx, npts, offset in ginfo:
+            if npts < 1:
+                continue
+            with (path / f"Level_{lev}" / f"DATA_{idx:05d}").open("rb") as fh:
+                fh.seek(offset)
+                np.fromfile(fh, dtype=np.int32, count=nints * npts)
+                reals = np.fromfile(fh, dtype="<f8", count=nreals * npts)
+            if reals.size != nreals * npts:
+                raise ValueError(f"{path}: truncated particle data in level {lev} grid {idx}")
+            rows.append(reals.reshape(npts, nreals)[:, :3])
+    data = np.concatenate(rows) if rows else np.empty((0, 3))
+    return count, data, read_native_time(path.parent)
+
+
+def find_profiles(directory, prefix):
+    """Map step -> (reader, path) for ASCII files or native particle directories."""
+    found = {}
+    for path in Path(directory).glob(f"{prefix}*"):
+        match = re.fullmatch(re.escape(prefix) + r"(\d+)(\.txt)?", path.name)
+        if not match:
+            continue
+        step = int(match[1])
+        if match[2] and path.is_file():
+            entry = (read_ascii_profile, path)
+        elif not match[2] and (path / "particles" / "Header").is_file():
+            entry = (read_native_profile, path / "particles")
+        else:
+            continue
+        if step in found:
+            raise ValueError(f"{directory}: both ASCII and native profiles for {prefix} step {step}")
+        found[step] = entry
+    return found
+
+
+def load_profiles(directory, *, start, end, x_min, x_max, dt=None, output_interval=None,
                   prefix="sampling_fs_domain", allow_single_point=False):
-    """Load eta[t, x]; filenames carry step numbers, not physical timestamps."""
-    if not np.isfinite([dt, start, end, x_min, x_max]).all():
+    """Load eta[t, x] and the output times.
+
+    Times come from the native output Header (exact, adaptive-dt safe). Legacy
+    ASCII profiles have no time, so they need the fixed `dt` (time = step * dt)
+    and, optionally, `output_interval` (steps) to check for missing files.
+    Output times need not be uniform; large gaps (missing outputs) raise errors.
+    """
+    if not np.isfinite([start, end, x_min, x_max]).all():
         raise ValueError("Sampling parameters must be finite")
-    if dt <= 0 or output_interval <= 0 or end <= start or x_max <= x_min:
-        raise ValueError("Require positive sampling intervals and increasing time/space bounds")
-    snapshots = []
-    for path in Path(directory).glob(f"{prefix}*.txt"):
-        match = re.fullmatch(re.escape(prefix) + r"(\d+)\.txt", path.name)
-        if match:
-            step = int(match[1])
+    if end <= start or x_max <= x_min:
+        raise ValueError("Require increasing time/space bounds")
+    if dt is not None and (not np.isfinite(dt) or dt <= 0):
+        raise ValueError("dt must be positive and finite")
+    if output_interval is not None and output_interval <= 0:
+        raise ValueError("output_interval must be positive")
+    every = []
+    for step, (reader, path) in find_profiles(directory, prefix).items():
+        time = read_native_time(path.parent) if reader is read_native_profile else None
+        if time is None:
+            if dt is None:
+                raise ValueError(f"{path}: no output time recorded; pass the fixed dt")
             time = step * dt
-            if start - 1e-10 <= time < end - 1e-10:
-                snapshots.append((step, path))
-    snapshots.sort()
+        every.append((time, step, reader, path))
+    every.sort(key=lambda item: item[0])
+    all_times = np.array([item[0] for item in every])
+    inside = (all_times >= start - 1e-10) & (all_times < end - 1e-10)
+    snapshots = [item for item, keep in zip(every, inside) if keep]
     if len(snapshots) < 8:
         raise ValueError(f"{directory}: fewer than eight profiles in [{start}, {end}) s")
-    steps = np.array([step for step, _ in snapshots])
-    times = steps * dt
-    sample_dt = dt * output_interval
-    if not np.all(np.diff(steps) == output_interval):
+    times = np.array([item[0] for item in snapshots])
+    steps = np.array([item[1] for item in snapshots])
+    if np.any(np.diff(times) <= 0) or np.any(np.diff(steps) <= 0):
+        raise ValueError("Duplicate or out-of-order profile times")
+    if output_interval is not None and not np.all(np.diff(steps) == output_interval):
         raise ValueError("Missing/duplicate profiles or output interval does not match filenames")
-    if times[0] >= start + sample_dt - 1e-10 or times[-1] < end - sample_dt - 1e-10:
+    # Gap check includes the nearest outputs just outside the window.
+    first, last = int(np.flatnonzero(inside)[0]), int(np.flatnonzero(inside)[-1])
+    neighbourhood = all_times[max(0, first - 1):last + 2]
+    spacing = np.diff(neighbourhood)
+    typical = float(np.median(np.diff(times)))
+    if spacing.max() > 2.5 * typical:
+        gap = int(np.argmax(spacing))
+        raise ValueError(f"Missing profiles: gap of {spacing[gap]:.4g} s after t={neighbourhood[gap]:.6g} s "
+                         f"(median interval {typical:.4g} s)")
+    covered_start = first > 0 or times[0] - start < 0.5 * typical
+    covered_end = last < len(all_times) - 1 or end - times[-1] < 1.5 * typical
+    if not (covered_start and covered_end):
         raise ValueError("Profiles do not cover the requested time window")
 
     reference = None
     elevations = []
-    for _, path in snapshots:
-        with path.open() as stream:
-            count = int(stream.readline().strip())
-        data = np.loadtxt(path, skiprows=5, usecols=(0, 1, 2), ndmin=2)
+    for _, _, reader, path in snapshots:
+        count, data, _ = reader(path)
         if data.shape[0] != count or not np.isfinite(data).all():
             raise ValueError(f"{path}: invalid point count or nonfinite surface coordinates")
         data = data[np.argsort(data[:, 0])]
@@ -78,6 +187,28 @@ def load_profiles(directory, *, dt, output_interval, start, end, x_min, x_max,
             raise ValueError(f"{path}: surface sampling coordinates changed between snapshots")
         elevations.append(data[selected, 2])
     return x, times, np.stack(elevations)
+
+
+def resample_uniform(times, *series, rtol=1e-6):
+    """Linearly interpolate (time, point) series onto a uniform time grid.
+
+    Returns (uniform_times, resampled..., resampled_flag). The grid starts at the
+    first output time with the median output interval; series already uniform
+    within `rtol` are returned unchanged. Only the k-omega FFT needs this;
+    accuracy norms and harmonic fits use the actual output times.
+    """
+    times = np.asarray(times, dtype=float)
+    spacing = np.diff(times)
+    step = float(np.median(spacing))
+    if np.allclose(spacing, step, rtol=rtol, atol=0):
+        return (times, *series, False)
+    count = int(np.floor((times[-1] - times[0]) / step + 1e-9)) + 1
+    grid = times[0] + step * np.arange(count)
+    out = []
+    for values in series:
+        values = np.asarray(values, dtype=float)
+        out.append(np.column_stack([np.interp(grid, times, values[:, j]) for j in range(values.shape[1])]))
+    return (grid, *out, True)
 
 
 @dataclass
@@ -141,8 +272,8 @@ def decompose(x, times, eta, frequency_band=(0.4, 0.85), incident_direction=1):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("directory", type=Path, help="directory containing sampling_fs_domain*.txt")
-    parser.add_argument("--dt", type=float, default=0.001, help="simulation fixed dt in seconds")
-    parser.add_argument("--output-interval", type=int, default=10, help="sampler interval in steps")
+    parser.add_argument("--dt", type=float, help="fixed dt in seconds (legacy ASCII profiles only)")
+    parser.add_argument("--output-interval", type=int, help="sampler interval in steps (legacy ASCII only)")
     parser.add_argument("--start", type=float, default=40.0)
     parser.add_argument("--end", type=float, default=72.0, help="exclusive time bound in seconds")
     parser.add_argument("--x-min", type=float, default=4.0)
@@ -155,6 +286,7 @@ def main(argv=None):
         args.directory, dt=args.dt, output_interval=args.output_interval,
         start=args.start, end=args.end, x_min=args.x_min, x_max=args.x_max,
     )
+    times, eta, resampled = resample_uniform(times, eta)
     result = decompose(x, times, eta, args.frequency_band, 1 if args.incident_direction == "+x" else -1)
     duration = len(times) * uniform_spacing(times, "time")
     length = len(x) * uniform_spacing(x, "x")
@@ -168,7 +300,7 @@ def main(argv=None):
         "source": str(args.directory.resolve()),
         "time_first_s": float(times[0]), "time_last_s": float(times[-1]),
         "x_first_m": float(x[0]), "x_last_m": float(x[-1]),
-        "nt": len(times), "nx": len(x),
+        "nt": len(times), "nx": len(x), "resampled_to_uniform_time": resampled,
         "delta_f_hz": 1 / duration, "delta_k_rad_per_m": 2 * np.pi / length,
         "frequency_band_hz": list(args.frequency_band),
         "incident_direction": args.incident_direction,

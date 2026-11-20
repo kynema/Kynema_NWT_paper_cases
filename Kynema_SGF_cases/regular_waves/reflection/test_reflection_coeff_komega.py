@@ -81,6 +81,50 @@ class ProfileTests(unittest.TestCase):
         return load_profiles(directory, dt=0.01, output_interval=10, start=0, end=3.2,
                              x_min=0, x_max=8)
 
+    def write_native_profiles(self, directory, split=(13, 19)):
+        """Write the same profiles as AMReX native particle data split over two grids."""
+        x = np.arange(32) / 4
+        for step in range(0, 320, 10):
+            t = step * 0.01
+            eta = np.cos(2 * np.pi * (x / 4 - 0.625 * t))
+            eta += 0.25 * np.cos(2 * np.pi * (x / 4 + 0.625 * t))
+            pdir = directory / f"sampling_fs_domain{step:05d}" / "particles"
+            (pdir / "Level_1").mkdir(parents=True)
+            order = np.arange(32)[::-1]  # particles are not ordered by x
+            chunks = np.split(order, [split[0]])
+            grid_lines, offset = [], 0
+            with (pdir / "Level_1" / "DATA_00000").open("wb") as fh:
+                for chunk in chunks:
+                    ints = np.zeros((len(chunk), 5), dtype=np.int32)
+                    ints[:, 4] = chunk  # probe_id
+                    reals = np.column_stack((x[chunk], np.zeros(len(chunk)), eta[chunk],
+                                             np.ones(len(chunk))))
+                    grid_lines.append(f"0 {len(chunk)} {offset}")
+                    fh.write(ints.astype("<i4").tobytes())
+                    fh.write(reals.astype("<f8").tobytes())
+                    offset += ints.nbytes + reals.nbytes
+            header = ["Version_Two_Dot_Zero_double", "3", "1", "vof", "3", "uid", "set_id",
+                      "probe_id", "1", "32", "33", "1", "0", str(len(grid_lines))] + grid_lines
+            (pdir / "Header").write_text("\n".join(header) + "\n")
+
+    def test_native_particle_profiles_match_ascii(self):
+        with tempfile.TemporaryDirectory() as a, tempfile.TemporaryDirectory() as b:
+            self.write_profiles(Path(a))
+            self.write_native_profiles(Path(b))
+            xa, ta, ea = self.load(Path(a))
+            xb, tb, eb = self.load(Path(b))
+            np.testing.assert_array_equal(xa, xb)
+            np.testing.assert_array_equal(ta, tb)
+            np.testing.assert_allclose(ea, eb, rtol=0, atol=1e-12)
+
+    def test_mixed_ascii_and_native_steps_fail(self):
+        with tempfile.TemporaryDirectory() as name:
+            directory = Path(name)
+            self.write_profiles(directory)
+            self.write_native_profiles(directory)
+            with self.assertRaisesRegex(ValueError, "both ASCII and native"):
+                self.load(directory)
+
     def test_loader_and_cli_outputs(self):
         with tempfile.TemporaryDirectory() as name:
             directory = Path(name)

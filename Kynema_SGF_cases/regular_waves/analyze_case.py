@@ -7,20 +7,39 @@ from pathlib import Path
 import numpy as np
 
 from harmonic_analysis import harmonic_analysis, plot_harmonics
-from reflection.reflection_coeff_komega import decompose, load_profiles
+from reflection.reflection_coeff_komega import decompose, load_profiles, resample_uniform
 
 
-def accuracy_metrics(eta, target, height):
+def time_weights(times):
+    """Interval each output represents: half the adjacent intervals (one interval at the ends).
+
+    All weights are equal for uniform output, so uniform results are unchanged.
+    """
+    times = np.asarray(times, dtype=float)
+    if times.size < 2:
+        return np.ones_like(times)
+    spacing = np.diff(times)
+    weights = np.empty_like(times)
+    weights[0], weights[-1] = spacing[0], spacing[-1]
+    weights[1:-1] = 0.5 * (spacing[:-1] + spacing[1:])
+    return weights
+
+
+def accuracy_metrics(eta, target, height, times=None):
     eta, target = np.asarray(eta), np.asarray(target)
     if eta.shape != target.shape or not np.isfinite(eta).all() or not np.isfinite(target).all():
         raise ValueError("Surface and target must have matching shapes and finite elevations")
     if not np.isfinite(height) or height <= 0 or not eta.size:
         raise ValueError("Require a positive wave height and nonempty surface histories")
     error = eta - target
-    l1 = float(np.mean(np.abs(error)))
-    l2 = float(np.sqrt(np.mean(error**2)))
+    w = np.ones(error.shape[0]) if times is None else time_weights(times)
+    if w.shape[0] != error.shape[0]:
+        raise ValueError("times must match the number of surface histories")
+    w = (w / w.sum()).reshape((-1,) + (1,) * (error.ndim - 1)) * (error.shape[0] / error.size)
+    l1 = float(np.sum(w * np.abs(error)))
+    l2 = float(np.sqrt(np.sum(w * error**2)))
     return {
-        "bias_m": float(np.mean(error)),
+        "bias_m": float(np.sum(w * error)),
         "l1_m": l1,
         "l2_m": l2,
         "linf_m": float(np.max(np.abs(error))),
@@ -35,19 +54,29 @@ def analyze(directory, *, start=None, end=None, harmonic_count=5, phase_floor_ra
     metadata = json.loads((directory / "case.json").read_text())
     start = metadata["analysis_time_s"][0] if start is None else start
     end = metadata["analysis_time_s"][1] if end is None else end
-    options = dict(
-        dt=metadata["dt_s"], output_interval=metadata["output_interval_steps"],
-        start=start, end=end,
-        x_min=metadata["sample_x_m"][0], x_max=metadata["sample_x_m"][1],
-    )
+    options = dict(start=start, end=end,
+                   x_min=metadata["sample_x_m"][0], x_max=metadata["sample_x_m"][1])
+    if metadata.get("time_stepping", "fixed") == "fixed":
+        # Legacy fixed-dt runs (ASCII profiles carry no time): time = step * dt
+        options.update(dt=metadata["dt_s"], output_interval=metadata["output_interval_steps"])
     x, times, eta = load_profiles(directory / "post_processing", **options)
     xt, tt, target = load_profiles(
         directory / "post_processing", prefix="sampling_fs_target", **options
     )
     if not np.array_equal(times, tt) or x.shape != xt.shape or not np.allclose(x, xt, rtol=0, atol=1e-8):
         raise ValueError("Surface and target coordinates/times do not match")
-    spectrum = decompose(x, times, eta, metadata["frequency_band_hz"])
-    reference_spectrum = decompose(x, times, target, metadata["frequency_band_hz"])
+    for name, values in (("computed surface", eta), ("target", target)):
+        stuck = np.ptp(values, axis=0) <= 1e-12
+        if stuck.any():
+            raise ValueError(
+                f"{directory}: {stuck.sum()} {name} sample points never change over "
+                f"[{start}, {end}) s (first x = {x[stuck][:5].tolist()}); the sampler did not "
+                "track the interface there"
+            )
+    # k-omega needs uniform time; outputs at a time interval under adaptive dt are not.
+    grid, eta_u, target_u, resampled = resample_uniform(times, eta, target)
+    spectrum = decompose(x, grid, eta_u, metadata["frequency_band_hz"])
+    reference_spectrum = decompose(x, grid, target_u, metadata["frequency_band_hz"])
     harmonics, harmonic_arrays = harmonic_analysis(
         times, eta, target, metadata["frequency_band_hz"],
         count=harmonic_count, phase_floor_ratio=phase_floor_ratio,
@@ -58,7 +87,16 @@ def analyze(directory, *, start=None, end=None, harmonic_count=5, phase_floor_ra
         "cells_per_height": metadata["cells_per_height"],
         "aspect_ratio": metadata["aspect_ratio"],
         "nominal_advective_cfl": metadata["nominal_advective_cfl"],
-        "dt_s": metadata["dt_s"],
+        "time_stepping": metadata.get("time_stepping", "fixed"),
+        "dt_s": metadata.get("dt_s"),
+        "initial_dt_s": metadata.get("initial_dt_s"),
+        "output_times": {
+            "count": len(times),
+            "median_interval_s": float(np.median(np.diff(times))),
+            "min_interval_s": float(np.min(np.diff(times))),
+            "max_interval_s": float(np.max(np.diff(times))),
+            "resampled_to_uniform_for_komega": bool(resampled),
+        },
         "time_window_s": [start, end],
         "actual_first_last_time_s": [float(times[0]), float(times[-1])],
         "space_window_m": metadata["sample_x_m"],
@@ -69,7 +107,7 @@ def analyze(directory, *, start=None, end=None, harmonic_count=5, phase_floor_ra
         "reflected_variance_m2": spectrum.reflected_variance,
         "target_apparent_reflection_coefficient": reference_spectrum.reflection_coefficient,
         "accuracy_reference": "same-grid solver-prescribed ow_vof surface; phase error retained",
-        "accuracy": accuracy_metrics(eta, target, metadata["wave_height_m"]),
+        "accuracy": accuracy_metrics(eta, target, metadata["wave_height_m"], times),
         "harmonic_analysis": harmonics,
     }
     return summary, {
